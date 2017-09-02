@@ -1,48 +1,35 @@
 /*
-	A 3D Minecraft skin renderer
-	Project link: https://github.com/Hacksore/skinpreview3d.js
-*/
+ * skinpreview3d.js
+ * https://github.com/Hacksore/skinpreview3d.js
+ */
 
-function SkinUtil(){
-	this.convert6432To6464 = function(context) {
-		this.copyImage(context, 4, 16, 4, 4, 20, 48, true);	// Top Leg
-		this.copyImage(context, 8, 16, 4, 4, 24, 48, true);	// Bottom Leg
-		this.copyImage(context, 0, 20, 4, 12, 24, 52, true);	// Outer Leg
-		this.copyImage(context, 4, 20, 4, 12, 20, 52, true);	// Front Leg
-		this.copyImage(context, 8, 20, 4, 12, 16, 52, true);	// Inner Leg
-		this.copyImage(context, 12, 20, 4, 12, 28, 52, true);	// Back Leg
-		
-		this.copyImage(context, 44, 16, 4, 4, 36, 48, true);	// Top Arm
-		this.copyImage(context, 48, 16, 4, 4, 40, 48, true);	// Bottom Arm
-		this.copyImage(context, 40, 20, 4, 12, 40, 52, true);	// Outer Arm
-		this.copyImage(context, 44, 20, 4, 12, 36, 52, true);	// Front Arm
-		this.copyImage(context, 48, 20, 4, 12, 32, 52, true);	// Inner Arm
-		this.copyImage(context, 52, 20, 4, 12, 44, 52, true);	// Back Arm
-	}
+'use strict';
 
-	this.copyImage = function(context, sX, sY, w, h, dX, dY, flipHorizontal) {
+// namespace skinpreview3d
+var skinpreview3d = new function(){
+
+	var copyImage = (context, sX, sY, w, h, dX, dY, flipHorizontal) => {
 		var imgData = context.getImageData(sX, sY, w, h);
-		
 		if(flipHorizontal){
-			for(y = 0; y < h; y++) {
-				for(x = 0; x < (w / 2); x++) {
-					index = (x + y * w) * 4;
-					index2 = ((w - x - 1) + y * w) * 4;
+			for(var y = 0; y < h; y++) {
+				for(var x = 0; x < (w / 2); x++) {
+					var index = (x + y * w) * 4;
+					var index2 = ((w - x - 1) + y * w) * 4;
 					var pA1 = imgData.data[index];
 					var pA2 = imgData.data[index+1];
 					var pA3 = imgData.data[index+2];
 					var pA4 = imgData.data[index+3];
-					
+
 					var pB1 = imgData.data[index2];
 					var pB2 = imgData.data[index2+1];
 					var pB3 = imgData.data[index2+2];
 					var pB4 = imgData.data[index2+3];
-					
+
 					imgData.data[index] = pB1;
 					imgData.data[index+1] = pB2;
 					imgData.data[index+2] = pB3;
 					imgData.data[index+3] = pB4;
-					
+
 					imgData.data[index2] = pA1;
 					imgData.data[index2+1] = pA2;
 					imgData.data[index2+2] = pA3;
@@ -50,1147 +37,1173 @@ function SkinUtil(){
 				}
 			}
 		}
-		
 		context.putImageData(imgData,dX,dY);
-	}
-	
-	this.fixOverlay = function(context) {
-		this.fixHead2(context);
-		this.fixBody2(context);
-		this.fixRightArm2(context);
-		this.fixLeftArm2(context);
-		this.fixRightLeg2(context);
-		this.fixLeftLeg2(context);
+	};
+
+	var convertSkinTo1_8 = (context, width) => {
+		var scale = width/64.0;
+		var copySkin = (context, sX, sY, w, h, dX, dY, flipHorizontal) => copyImage(context, sX*scale, sY*scale, w*scale, h*scale, dX*scale, dY*scale, flipHorizontal);
+
+		copySkin(context, 4, 16, 4, 4, 20, 48, true); // Top Leg
+		copySkin(context, 8, 16, 4, 4, 24, 48, true); // Bottom Leg
+		copySkin(context, 0, 20, 4, 12, 24, 52, true); // Outer Leg
+		copySkin(context, 4, 20, 4, 12, 20, 52, true); // Front Leg
+		copySkin(context, 8, 20, 4, 12, 16, 52, true); // Inner Leg
+		copySkin(context, 12, 20, 4, 12, 28, 52, true); // Back Leg
+		copySkin(context, 44, 16, 4, 4, 36, 48, true); // Top Arm
+		copySkin(context, 48, 16, 4, 4, 40, 48, true); // Bottom Arm
+		copySkin(context, 40, 20, 4, 12, 40, 52, true); // Outer Arm
+		copySkin(context, 44, 20, 4, 12, 36, 52, true); // Front Arm
+		copySkin(context, 48, 20, 4, 12, 32, 52, true); // Inner Arm
+		copySkin(context, 52, 20, 4, 12, 44, 52, true); // Back Arm
+	};
+
+	var toFaceVertices = (x1,y1,x2,y2,w,h) => [
+		new THREE.Vector2(x1/w, 1.0-y2/h),
+		new THREE.Vector2(x2/w, 1.0-y2/h),
+		new THREE.Vector2(x2/w, 1.0-y1/h),
+		new THREE.Vector2(x1/w, 1.0-y1/h)
+	];
+
+	var toSkinVertices = (x1,y1,x2,y2) => toFaceVertices(x1, y1, x2, y2, 64.0, 64.0);
+	var toCapeVertices = (x1,y1,x2,y2) => toFaceVertices(x1, y1, x2, y2, 64.0, 32.0);
+
+	var addVertices = (box,top,bottom,left,front,right,back) => {
+		box.faceVertexUvs[0] = [];
+		box.faceVertexUvs[0][0] = [right[3], right[0], right[2]];
+		box.faceVertexUvs[0][1] = [right[0], right[1], right[2]];
+		box.faceVertexUvs[0][2] = [left[3], left[0], left[2]];
+		box.faceVertexUvs[0][3] = [left[0], left[1], left[2]];
+		box.faceVertexUvs[0][4] = [top[3], top[0], top[2]];
+		box.faceVertexUvs[0][5] = [top[0], top[1], top[2]];
+		box.faceVertexUvs[0][6] = [bottom[0], bottom[3], bottom[1]];
+		box.faceVertexUvs[0][7] = [bottom[3], bottom[2], bottom[1]];
+		box.faceVertexUvs[0][8] = [front[3], front[0], front[2]];
+		box.faceVertexUvs[0][9] = [front[0], front[1], front[2]];
+		box.faceVertexUvs[0][10] = [back[3], back[0], back[2]];
+		box.faceVertexUvs[0][11] = [back[0], back[1], back[2]];
+	};
+
+	this.SkinViewer = function(domElement, canvasW, canvasH, isSlim){
+		var angleRot = 0;
+		var initialized = false;
+
+		var skinImg = new Image();
+		var skinCanvas = document.createElement('canvas');
+		var skinContext = skinCanvas.getContext('2d');
+		var skinTexture = new THREE.Texture(skinCanvas);
+		skinTexture.magFilter = THREE.NearestFilter;
+		skinTexture.minFilter = THREE.NearestMipMapNearestFilter;
+
+		var capeImg = new Image();
+		var capeCanvas = document.createElement('canvas');
+		var capeContext = capeCanvas.getContext('2d');
+		var capeTexture = new THREE.Texture(capeCanvas);
+		capeTexture.magFilter = THREE.NearestFilter;
+		capeTexture.minFilter = THREE.NearestMipMapNearestFilter;
+
+		var layer1Material = new THREE.MeshBasicMaterial({map: skinTexture, side: THREE.FrontSide});
+		var layer2Material = new THREE.MeshBasicMaterial({map: skinTexture, transparent: true, opacity: 1, side: THREE.DoubleSide});
+		var capeMaterial = new THREE.MeshBasicMaterial({map: capeTexture});
+
+		var capePivot;
+
+		var headBox, headMesh,
+			bodyBox, bodyMesh,
+			rightArmBox, rightArmMesh,
+			leftArmBox, leftArmMesh,
+			rightLegBox, rightLegMesh,
+			leftLegBox, leftLegMesh,
+			head2Box, head2Mesh,
+			body2Box, body2Mesh,
+			rightArm2Box, rightArm2Mesh,
+			leftArm2Box, leftArm2Mesh,
+			rightLeg2Box, rightLeg2Mesh,
+			leftLeg2Box, leftLeg2Mesh,
+			capeBox, capeMesh;
+
+		this.domElement = domElement;
+		this.animationPaused = false;
+		this.animationSpeed = 3;
+
+		this.scene = new THREE.Scene();
+
+		this.camera = new THREE.PerspectiveCamera(75, canvasW / canvasH, 1, 10000);
+		this.camera.position.y = -12;
+		this.camera.position.z = 30;
+
+		this.renderer = new THREE.WebGLRenderer({angleRot: true, alpha: true, antialias: false});
+		this.renderer.setSize(canvasW, canvasH);
+		this.renderer.context.getShaderInfoLog = () => ''; // shut firefox up
+
+		Object.defineProperties(this, {
+			'skinUrl': {
+				get: () => skinImg.src,
+				set: url => skinImg.src = url
+			},
+			'capeUrl': {
+				get: () => capeImg.src,
+				set: url => capeImg.src = url
+			}
+		});
+
+		var initialize = () => {
+			// Head Parts
+			headBox = new THREE.BoxGeometry(8, 8, 8, 0, 0, 0);
+			addVertices(headBox,
+				toSkinVertices(8, 0, 16, 8),
+				toSkinVertices(16, 0, 24, 8),
+				toSkinVertices(0, 8, 8, 16),
+				toSkinVertices(8, 8, 16, 16),
+				toSkinVertices(16, 8, 24, 16),
+				toSkinVertices(24, 8, 32, 16)
+			);
+			headMesh = new THREE.Mesh(headBox, layer1Material);
+			headMesh.name = 'head';
+			this.scene.add(headMesh);
+
+			// Body Parts
+			bodyBox = new THREE.BoxGeometry(8, 12, 4, 0, 0, 0);
+			addVertices(bodyBox,
+				toSkinVertices(20, 16, 28, 20),
+				toSkinVertices(28, 16, 36, 20),
+				toSkinVertices(16, 20, 20, 32),
+				toSkinVertices(20, 20, 28, 32),
+				toSkinVertices(28, 20, 32, 32),
+				toSkinVertices(32, 20, 40, 32)
+			);
+			bodyMesh = new THREE.Mesh(bodyBox, layer1Material);
+			bodyMesh.name = 'body';
+			bodyMesh.position.y = -10;
+			this.scene.add(bodyMesh);
+
+			// Right Arm Parts
+			rightArmBox = new THREE.BoxGeometry(isSlim?3:4, 12, 4, 0, 0, 0);
+			if (isSlim) {
+				addVertices(rightArmBox,
+					toSkinVertices(44, 16, 47, 20),
+					toSkinVertices(47, 16, 50, 20),
+					toSkinVertices(40, 20, 44, 32),
+					toSkinVertices(44, 20, 47, 32),
+					toSkinVertices(47, 20, 51, 32),
+					toSkinVertices(51, 20, 54, 32)
+				);
+			} else {
+				addVertices(rightArmBox,
+					toSkinVertices(44, 16, 48, 20),
+					toSkinVertices(48, 16, 52, 20),
+					toSkinVertices(40, 20, 44, 32),
+					toSkinVertices(44, 20, 48, 32),
+					toSkinVertices(48, 20, 52, 32),
+					toSkinVertices(52, 20, 56, 32)
+				);
+			}
+			rightArmMesh = new THREE.Mesh(rightArmBox, layer1Material);
+			rightArmMesh.name = 'rightArm';
+			rightArmMesh.position.y = -10;
+			rightArmMesh.position.x = isSlim?-5.5:-6;
+			this.scene.add(rightArmMesh);
+
+			// Left Arm Parts
+			leftArmBox = new THREE.BoxGeometry(isSlim?3:4, 12, 4, 0, 0, 0);
+			if (isSlim) {
+				addVertices(leftArmBox,
+					toSkinVertices(36, 48, 39, 52),
+					toSkinVertices(39, 48, 42, 52),
+					toSkinVertices(32, 52, 36, 64),
+					toSkinVertices(36, 52, 39, 64),
+					toSkinVertices(39, 52, 43, 64),
+					toSkinVertices(43, 52, 46, 64)
+				);
+			} else {
+				addVertices(leftArmBox,
+					toSkinVertices(36, 48, 40, 52),
+					toSkinVertices(40, 48, 44, 52),
+					toSkinVertices(32, 52, 36, 64),
+					toSkinVertices(36, 52, 40, 64),
+					toSkinVertices(40, 52, 44, 64),
+					toSkinVertices(44, 52, 48, 64)
+				);
+			}
+			leftArmMesh = new THREE.Mesh(leftArmBox, layer1Material);
+			leftArmMesh.name = 'leftArm';
+			leftArmMesh.position.y = -10;
+			leftArmMesh.position.x = isSlim?5.5:6;
+			this.scene.add(leftArmMesh);
+
+			// Right Leg Parts
+			rightLegBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
+			addVertices(rightLegBox,
+				toSkinVertices(4, 16, 8, 20),
+				toSkinVertices(8, 16, 12, 20),
+				toSkinVertices(0, 20, 4, 32),
+				toSkinVertices(4, 20, 8, 32),
+				toSkinVertices(8, 20, 12, 32),
+				toSkinVertices(12, 20, 16, 32)
+			);
+			rightLegMesh = new THREE.Mesh(rightLegBox, layer1Material);
+			rightLegMesh.name = 'rightLeg'
+			rightLegMesh.position.y = -22;
+			rightLegMesh.position.x = -2;
+			this.scene.add(rightLegMesh);
+
+			// Left Leg Parts
+			leftLegBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
+			addVertices(leftLegBox,
+				toSkinVertices(20, 48, 24, 52),
+				toSkinVertices(24, 48, 28, 52),
+				toSkinVertices(16, 52, 20, 64),
+				toSkinVertices(20, 52, 24, 64),
+				toSkinVertices(24, 52, 28, 64),
+				toSkinVertices(28, 52, 32, 64)
+			);
+			leftLegMesh = new THREE.Mesh(leftLegBox, layer1Material);
+			leftLegMesh.name = 'leftLeg';
+			leftLegMesh.position.y = -22;
+			leftLegMesh.position.x = 2;
+			this.scene.add(leftLegMesh);
+
+			// Head Overlay Parts
+			head2Box = new THREE.BoxGeometry(9, 9, 9, 0, 0, 0);
+			addVertices(head2Box,
+				toSkinVertices(40, 0, 48, 8),
+				toSkinVertices(48, 0, 56, 8),
+				toSkinVertices(32, 8, 40, 16),
+				toSkinVertices(40, 8, 48, 16),
+				toSkinVertices(48, 8, 56, 16),
+				toSkinVertices(56, 8, 64, 16)
+			);
+			head2Mesh = new THREE.Mesh(head2Box, layer2Material);
+			head2Mesh.name = 'head2'
+			this.scene.add(head2Mesh);
+
+			// Body Overlay Parts
+			body2Box = new THREE.BoxGeometry(9, 13.5, 4.5, 0, 0, 0);
+			addVertices(body2Box,
+				toSkinVertices(20, 32, 28, 36),
+				toSkinVertices(28, 32, 36, 36),
+				toSkinVertices(16, 36, 20, 48),
+				toSkinVertices(20, 36, 28, 48),
+				toSkinVertices(28, 36, 32, 48),
+				toSkinVertices(32, 36, 40, 48)
+			);
+			body2Mesh = new THREE.Mesh(body2Box, layer2Material);
+			body2Mesh.name = 'body2';
+			body2Mesh.position.y = -10;
+			this.scene.add(body2Mesh);
+
+			// Right Arm Overlay Parts
+			rightArm2Box = new THREE.BoxGeometry(isSlim?3.375:4.5, 13.5, 4.5, 0, 0, 0);
+			if (isSlim) {
+				addVertices(rightArm2Box,
+					toSkinVertices(44, 32, 47, 36),
+					toSkinVertices(47, 32, 50, 36),
+					toSkinVertices(40, 36, 44, 48),
+					toSkinVertices(44, 36, 47, 48),
+					toSkinVertices(47, 36, 51, 48),
+					toSkinVertices(51, 36, 54, 48)
+				);
+			} else {
+				addVertices(rightArm2Box,
+					toSkinVertices(44, 32, 48, 36),
+					toSkinVertices(48, 32, 52, 36),
+					toSkinVertices(40, 36, 44, 48),
+					toSkinVertices(44, 36, 48, 48),
+					toSkinVertices(48, 36, 52, 48),
+					toSkinVertices(52, 36, 56, 48)
+				);
+			}
+			rightArm2Mesh = new THREE.Mesh(rightArm2Box, layer2Material);
+			rightArm2Mesh.name = 'rightArm2';
+			rightArm2Mesh.position.y = -10;
+			rightArm2Mesh.position.x = -6;
+			this.scene.add(rightArm2Mesh);
+
+			// Left Arm Overlay Parts
+			leftArm2Box = new THREE.BoxGeometry(isSlim?3.375:4.5, 13.5, 4.5, 0, 0, 0);
+			if (isSlim) {
+				addVertices(leftArm2Box,
+					toSkinVertices(52, 48, 55, 52),
+					toSkinVertices(55, 48, 58, 52),
+					toSkinVertices(48, 52, 52, 64),
+					toSkinVertices(52, 52, 55, 64),
+					toSkinVertices(55, 52, 59, 64),
+					toSkinVertices(59, 52, 62, 64)
+				);
+			} else {
+				addVertices(leftArm2Box,
+					toSkinVertices(52, 48, 56, 52),
+					toSkinVertices(56, 48, 60, 52),
+					toSkinVertices(48, 52, 52, 64),
+					toSkinVertices(52, 52, 56, 64),
+					toSkinVertices(56, 52, 60, 64),
+					toSkinVertices(60, 52, 64, 64)
+				);
+			}
+			leftArm2Mesh = new THREE.Mesh(leftArm2Box, layer2Material);
+			leftArm2Mesh.name = 'leftArm2';
+			leftArm2Mesh.position.y = -10;
+			leftArm2Mesh.position.x = 6;
+			// leftArm2Mesh.visible = true;
+			this.scene.add(leftArm2Mesh);
+
+			// Right Leg Overlay Parts
+			rightLeg2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
+			addVertices(rightLeg2Box,
+				toSkinVertices(4, 32, 8, 36),
+				toSkinVertices(8, 32, 12, 36),
+				toSkinVertices(0, 36, 4, 48),
+				toSkinVertices(4, 36, 8, 48),
+				toSkinVertices(8, 36, 12, 48),
+				toSkinVertices(12, 36, 16, 48)
+			);
+			rightLeg2Mesh = new THREE.Mesh(rightLeg2Box, layer2Material);
+			rightLeg2Mesh.name = 'rightLeg2'
+			rightLeg2Mesh.position.y = -22;
+			rightLeg2Mesh.position.x = -2;
+			this.scene.add(rightLeg2Mesh);
+
+			// Left Leg Overlay Parts
+			leftLeg2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
+			addVertices(leftLeg2Box,
+				toSkinVertices(4, 48, 8, 52),
+				toSkinVertices(8, 48, 12, 52),
+				toSkinVertices(0, 52, 4, 64),
+				toSkinVertices(4, 52, 8, 64),
+				toSkinVertices(8, 52, 12, 64),
+				toSkinVertices(12, 52, 16, 64)
+			);
+			leftLeg2Mesh = new THREE.Mesh(leftLeg2Box, layer2Material);
+			leftLeg2Mesh.name = 'leftLeg2';
+			leftLeg2Mesh.position.y = -22;
+			leftLeg2Mesh.position.x = 2;
+			this.scene.add(leftLeg2Mesh);
+
+			// Cape Parts
+			// back = outside
+			// front = inside
+			capeBox = new THREE.BoxGeometry(10, 16, 1, 0, 0, 0);
+			addVertices(capeBox,
+				toCapeVertices(1, 0, 11, 0),
+				toCapeVertices(11, 0, 21, 0),
+				toCapeVertices(11, 1, 11, 17),
+				toCapeVertices(12, 1, 22, 17),
+				toCapeVertices(0, 1, 0, 17),
+				toCapeVertices(1, 1, 11, 17)
+			);
+			capeMesh = new THREE.Mesh(capeBox, capeMaterial);
+			capeMesh.name = 'cape';
+			capeMesh.position.y = -12.75;
+			capeMesh.position.z = -0.55;
+			capePivot = new THREE.Group();
+			capePivot.rotation.x = 25 * (Math.PI/180);
+			this.scene.add(capePivot);
+
+			this.domElement.append(this.renderer.domElement);
+		}
+
+		skinImg.crossOrigin = '';
+		skinImg.onload = () => {
+			var isOldFormat = false;
+			if (skinImg.width !== skinImg.height) {
+				if (skinImg.width === 2*skinImg.height) {
+					isOldFormat = true;
+				} else {
+					console.log('Bad skin size');
+					return;
+				}
+			}
+
+			if(isOldFormat){
+				var width = skinImg.width;
+				skinCanvas.width = width;
+				skinCanvas.height = width;
+				skinContext.clearRect(0, 0, width, width);
+				skinContext.drawImage(skinImg, 0, 0, width, width/2.0);
+				convertSkinTo1_8(skinContext, width);
+			} else {
+				skinCanvas.width = skinImg.width;
+				skinCanvas.height = skinImg.height;
+				skinContext.clearRect(0, 0, skinCanvas.width, skinCanvas.height);
+				skinContext.drawImage(skinImg, 0, 0, skinCanvas.width, skinCanvas.height);
+			}
+
+			skinTexture.needsUpdate = true;
+			layer1Material.needsUpdate = true;
+			layer2Material.needsUpdate = true;
+
+			if(!initialized) {
+				initialize();
+				initialized = true;
+				drawSkin();
+			}
+		};
+		skinImg.onerror = () => console.log('Failed loading ' + skinImg.src);
+
+		capeImg.crossOrigin = '';
+		capeImg.onload = () => {
+			if (capeImg.width !== 2*capeImg.height) {
+				console.log('Bad cape size');
+				return;
+			}
+
+			capePivot.add(capeMesh);
+
+			capeCanvas.width = capeImg.width;
+			capeCanvas.height = capeImg.height;
+			capeContext.clearRect(0, 0, capeCanvas.width, capeCanvas.height);
+			capeContext.drawImage(capeImg, 0, 0, capeCanvas.width, capeCanvas.height);
+
+			capeTexture.needsUpdate = true;
+			capeMaterial.needsUpdate = true;
+		};
+		capeImg.onerror = () => console.log('Failed loading ' + capeImg.src);
+
+		var startTime = Date.now();
+		var drawSkin = () => {
+			requestAnimationFrame(drawSkin);
+			var time = (Date.now() - startTime)/1000;
+			if(!this.animationPaused)
+				angleRot += 0.01;
+
+			//Leg Swing
+			leftLeg2Mesh.rotation.x = leftLegMesh.rotation.x = Math.cos(angleRot*this.animationSpeed);
+			leftLeg2Mesh.position.z = leftLegMesh.position.z = 0 - 6*Math.sin(leftLegMesh.rotation.x);
+			leftLeg2Mesh.position.y = leftLegMesh.position.y = -16 - 6*Math.abs(Math.cos(leftLegMesh.rotation.x));
+			rightLeg2Mesh.rotation.x = rightLegMesh.rotation.x = Math.cos(angleRot*this.animationSpeed + (Math.PI));
+			rightLeg2Mesh.position.z = rightLegMesh.position.z = 0 - 6*Math.sin(rightLegMesh.rotation.x);
+			rightLeg2Mesh.position.y = rightLegMesh.position.y = -16 - 6*Math.abs(Math.cos(rightLegMesh.rotation.x));
+
+			//Arm Swing
+			leftArm2Mesh.rotation.x = leftArmMesh.rotation.x = Math.cos(angleRot*this.animationSpeed + (Math.PI));
+			leftArm2Mesh.position.z = leftArmMesh.position.z = 0 - 6*Math.sin(leftArmMesh.rotation.x);
+			leftArm2Mesh.position.y = leftArmMesh.position.y = -4 - 6*Math.abs(Math.cos(leftArmMesh.rotation.x));
+			rightArm2Mesh.rotation.x = rightArmMesh.rotation.x = Math.cos(angleRot*this.animationSpeed);
+			rightArm2Mesh.position.z = rightArmMesh.position.z = 0 - 6*Math.sin(rightArmMesh.rotation.x);
+			rightArm2Mesh.position.y = rightArmMesh.position.y = -4 - 6*Math.abs(Math.cos(rightArmMesh.rotation.x));
+
+			this.renderer.render(this.scene, this.camera);
+
+			if(angleRot > 360)
+				angleRot = 0;
+		}
 	}
 
-	this.fixHead2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 40, 8, 8, 8)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 40, 0, 8, 8)) return;
-		if(this.hasTransparency(context, 48, 0, 8, 8)) return;
-		if(this.hasTransparency(context, 32, 8, 8, 8)) return;
-		if(this.hasTransparency(context, 48, 8, 8, 8)) return;
-		if(this.hasTransparency(context, 56, 8, 8, 8)) return;
-		
-		// Didn't have transparency, clearing the head overlay area.
-		context.clearRect(40, 0, 8, 8);
-		context.clearRect(48, 0, 8, 8);
-		context.clearRect(32, 8, 8, 8);
-		context.clearRect(40, 8, 8, 8);
-		context.clearRect(48, 8, 8, 8);
-		context.clearRect(56, 8, 8, 8);
-	}
+	// ====== OrbitControls ======
+	// The code was originally from https://github.com/mrdoob/three.js/blob/d45a042cf962e9b1aa9441810ba118647b48aacb/examples/js/controls/OrbitControls.js
+	/**
+	 * The MIT License
+	 *
+	 * Copyright © 2010-2017 three.js authors
+	 *
+	 * Permission is hereby granted, free of charge, to any person obtaining a copy
+	 * of this software and associated documentation files (the "Software"), to deal
+	 * in the Software without restriction, including without limitation the rights
+	 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	 * copies of the Software, and to permit persons to whom the Software is
+	 * furnished to do so, subject to the following conditions:
+	 *
+	 * The above copyright notice and this permission notice shall be included in
+	 * all copies or substantial portions of the Software.
+	 *
+	 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	 * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+	 * THE SOFTWARE.
+	*/
+	this.OrbitControls = function (object, domElement) {
+		/**
+		 * @author qiao / https://github.com/qiao
+		 * @author mrdoob / http://mrdoob.com
+		 * @author alteredq / http://alteredqualia.com/
+		 * @author WestLangley / http://github.com/WestLangley
+		 * @author erich666 / http://erichaines.com
+		 */
+		// This set of controls performs orbiting, dollying (zooming), and panning.
+		// Unlike TrackballControls, it maintains the "up" direction object.up (+Y by default).
+		//
+		//    Orbit - left mouse / touch: one finger move
+		//    Zoom - middle mouse, or mousewheel / touch: two finger spread or squish
+		//    Pan - right mouse, or arrow keys / touch: three finger swipe
 
-	this.fixBody2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 20, 36, 8, 12)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 20, 32, 8, 4)) return;
-		if(this.hasTransparency(context, 28, 32, 8, 4)) return;
-		if(this.hasTransparency(context, 16, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 28, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 32, 36, 8, 12)) return;
-		
-		// Didn't have transparency, clearing the body overlay area.
-		context.clearRect(20, 32, 8, 4);
-		context.clearRect(28, 32, 8, 4);
-		context.clearRect(16, 36, 4, 12);
-		context.clearRect(20, 36, 8, 12);
-		context.clearRect(28, 36, 4, 12);
-		context.clearRect(32, 36, 8, 12);
-	}
+		this.object = object;
 
-	this.fixRightArm2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 44, 36, 4, 12)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 44, 32, 4, 4)) return;
-		if(this.hasTransparency(context, 48, 32, 4, 4)) return;
-		if(this.hasTransparency(context, 40, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 48, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 52, 36, 4, 12)) return;
-		
-		// Didn't have transparency, clearing the right arm overlay area.
-		context.clearRect(44, 32, 4, 4);
-		context.clearRect(48, 32, 4, 4);
-		context.clearRect(40, 36, 4, 12);
-		context.clearRect(44, 36, 4, 12);
-		context.clearRect(48, 36, 4, 12);
-		context.clearRect(52, 36, 4, 12);
-	}
+		this.domElement = (domElement !== undefined) ? domElement : document;
 
-	this.fixLeftArm2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 52, 52, 4, 12)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 52, 48, 4, 4)) return;
-		if(this.hasTransparency(context, 56, 48, 4, 4)) return;
-		if(this.hasTransparency(context, 48, 52, 4, 12)) return;
-		if(this.hasTransparency(context, 56, 52, 4, 12)) return;
-		if(this.hasTransparency(context, 60, 52, 4, 12)) return;
-		
-		// Didn't have transparency, clearing the left arm overlay area.
-		context.clearRect(52, 48, 4, 4);
-		context.clearRect(56, 48, 4, 4);
-		context.clearRect(48, 52, 4, 12);
-		context.clearRect(52, 52, 4, 12);
-		context.clearRect(56, 52, 4, 12);
-		context.clearRect(60, 52, 4, 12);
-	}
+		// Set to false to disable this control
+		this.enabled = true;
 
-	this.fixRightLeg2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 4, 36, 4, 12)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 4, 32, 4, 4)) return;
-		if(this.hasTransparency(context, 8, 32, 4, 4)) return;
-		if(this.hasTransparency(context, 0, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 8, 36, 4, 12)) return;
-		if(this.hasTransparency(context, 12, 36, 4, 12)) return;
-		
-		// Didn't have transparency, clearing the right leg overlay area.
-		context.clearRect(4, 32, 4, 4);
-		context.clearRect(8, 32, 4, 4);
-		context.clearRect(0, 36, 4, 12);
-		context.clearRect(4, 36, 4, 12);
-		context.clearRect(8, 36, 4, 12);
-		context.clearRect(12, 36, 4, 12);
-	}
+		// "target" sets the location of focus, where the object orbits around
+		this.target = new THREE.Vector3();
 
-	this.fixLeftLeg2 = function(context) {
-		// Front
-		if(this.hasTransparency(context, 4, 52, 4, 12)) return;
-		
-		// Top, Bottom, Right, Left, Back
-		if(this.hasTransparency(context, 4, 48, 4, 4)) return;
-		if(this.hasTransparency(context, 8, 48, 4, 4)) return;
-		if(this.hasTransparency(context, 0, 52, 4, 12)) return;
-		if(this.hasTransparency(context, 8, 52, 4, 12)) return;
-		if(this.hasTransparency(context, 12, 52, 4, 12)) return;
-		
-		// Didn't have transparency, clearing the left leg overlay area.
-		context.clearRect(4, 48, 4, 4);
-		context.clearRect(8, 48, 4, 4);
-		context.clearRect(0, 52, 4, 12);
-		context.clearRect(4, 52, 4, 12);
-		context.clearRect(8, 52, 4, 12);
-		context.clearRect(12, 52, 4, 12);
-	}
+		// How far you can dolly in and out (PerspectiveCamera only)
+		this.minDistance = 0;
+		this.maxDistance = Infinity;
 
-	this.fixNonVisible = function(context) {
-		// 64x32 and 64x64 skin parts
-		context.clearRect(0, 0, 8, 8);
-		context.clearRect(24, 0, 16, 8);
-		context.clearRect(56, 0, 8, 8);
-		context.clearRect(0, 16, 4, 4);
-		context.clearRect(12, 16, 8, 4);
-		context.clearRect(36, 16, 8, 4);
-		context.clearRect(52, 16, 4, 4);
-		context.clearRect(56, 16, 8, 32);
-		
-		// 64x64 skin parts
-		context.clearRect(0, 32, 4, 4);
-		context.clearRect(12, 32, 8, 4);
-		context.clearRect(36, 32, 8, 4);
-		context.clearRect(52, 32, 4, 4);
-		context.clearRect(0, 48, 4, 4);
-		context.clearRect(12, 48, 8, 4);
-		context.clearRect(28, 48, 8, 4);
-		context.clearRect(44, 48, 8, 4);
-		context.clearRect(60, 48, 8, 4);
-	}
+		// How far you can zoom in and out (OrthographicCamera only)
+		this.minZoom = 0;
+		this.maxZoom = Infinity;
 
-	this.hasTransparency = function(context, x, y, w, h) {
-		var imgData = context.getImageData(x, y, w, h);
-		
-		for(y = 0; y < h; y++) {
-			for(x = 0; x < w; x++) {
-				var index = (x + y * w) * 4;
-				if(imgData.data[index + 3] == 0) return true;	// Has transparency
+		// How far you can orbit vertically, upper and lower limits.
+		// Range is 0 to Math.PI radians.
+		this.minPolarAngle = 0; // radians
+		this.maxPolarAngle = Math.PI; // radians
+
+		// How far you can orbit horizontally, upper and lower limits.
+		// If set, must be a sub-interval of the interval [ - Math.PI, Math.PI ].
+		this.minAzimuthAngle = - Infinity; // radians
+		this.maxAzimuthAngle = Infinity; // radians
+
+		// Set to true to enable damping (inertia)
+		// If damping is enabled, you must call controls.update() in your animation loop
+		this.enableDamping = false;
+		this.dampingFactor = 0.25;
+
+		// This option actually enables dollying in and out; left as "zoom" for backwards compatibility.
+		// Set to false to disable zooming
+		this.enableZoom = true;
+		this.zoomSpeed = 1.0;
+
+		// Set to false to disable rotating
+		this.enableRotate = true;
+		this.rotateSpeed = 1.0;
+
+		// Set to false to disable panning
+		this.enablePan = true;
+		this.keyPanSpeed = 7.0;	// pixels moved per arrow key push
+
+		// Set to true to automatically rotate around the target
+		// If auto-rotate is enabled, you must call controls.update() in your animation loop
+		this.autoRotate = false;
+		this.autoRotateSpeed = 2.0; // 30 seconds per round when fps is 60
+
+		// Set to false to disable use of the keys
+		this.enableKeys = true;
+
+		// The four arrow keys
+		this.keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40 };
+
+		// Mouse buttons
+		this.mouseButtons = { ORBIT: THREE.MOUSE.LEFT, ZOOM: THREE.MOUSE.MIDDLE, PAN: THREE.MOUSE.RIGHT };
+
+		// for reset
+		this.target0 = this.target.clone();
+		this.position0 = this.object.position.clone();
+		this.zoom0 = this.object.zoom;
+
+		//
+		// public methods
+		//
+
+		this.getPolarAngle = function () {
+			return spherical.phi;
+		};
+
+		this.getAzimuthalAngle = function () {
+			return spherical.theta;
+		};
+
+		this.saveState = function () {
+			scope.target0.copy(scope.target);
+			scope.position0.copy(scope.object.position);
+			scope.zoom0 = scope.object.zoom;
+		};
+
+		this.reset = function () {
+			scope.target.copy(scope.target0);
+			scope.object.position.copy(scope.position0);
+			scope.object.zoom = scope.zoom0;
+
+			scope.object.updateProjectionMatrix();
+			scope.dispatchEvent(changeEvent);
+
+			scope.update();
+
+			state = STATE.NONE;
+		};
+
+		// this method is exposed, but perhaps it would be better if we can make it private...
+		this.update = function () {
+			var offset = new THREE.Vector3();
+
+			// so camera.up is the orbit axis
+			var quat = new THREE.Quaternion().setFromUnitVectors(object.up, new THREE.Vector3(0, 1, 0));
+			var quatInverse = quat.clone().inverse();
+
+			var lastPosition = new THREE.Vector3();
+			var lastQuaternion = new THREE.Quaternion();
+
+			return function update() {
+
+				var position = scope.object.position;
+
+				offset.copy(position).sub(scope.target);
+
+				// rotate offset to "y-axis-is-up" space
+				offset.applyQuaternion(quat);
+
+				// angle from z-axis around y-axis
+				spherical.setFromVector3(offset);
+
+				if (scope.autoRotate && state === STATE.NONE) {
+
+					rotateLeft(getAutoRotationAngle());
+
+				}
+
+				spherical.theta += sphericalDelta.theta;
+				spherical.phi += sphericalDelta.phi;
+
+				// restrict theta to be between desired limits
+				spherical.theta = Math.max(scope.minAzimuthAngle, Math.min(scope.maxAzimuthAngle, spherical.theta));
+
+				// restrict phi to be between desired limits
+				spherical.phi = Math.max(scope.minPolarAngle, Math.min(scope.maxPolarAngle, spherical.phi));
+
+				spherical.makeSafe();
+
+				spherical.radius *= scale;
+
+				// restrict radius to be between desired limits
+				spherical.radius = Math.max(scope.minDistance, Math.min(scope.maxDistance, spherical.radius));
+
+				// move target to panned location
+				scope.target.add(panOffset);
+
+				offset.setFromSpherical(spherical);
+
+				// rotate offset back to "camera-up-vector-is-up" space
+				offset.applyQuaternion(quatInverse);
+
+				position.copy(scope.target).add(offset);
+
+				scope.object.lookAt(scope.target);
+
+				if (scope.enableDamping === true) {
+
+					sphericalDelta.theta *= (1 - scope.dampingFactor);
+					sphericalDelta.phi *= (1 - scope.dampingFactor);
+
+				} else {
+
+					sphericalDelta.set(0, 0, 0);
+
+				}
+
+				scale = 1;
+				panOffset.set(0, 0, 0);
+
+				// update condition is:
+				// min(camera displacement, camera rotation in radians)^2 > EPS
+				// using small-angle approximation cos(x/2) = 1 - x^2 / 8
+
+				if (zoomChanged ||
+					lastPosition.distanceToSquared(scope.object.position) > EPS ||
+					8 * (1 - lastQuaternion.dot(scope.object.quaternion)) > EPS) {
+
+					scope.dispatchEvent(changeEvent);
+
+					lastPosition.copy(scope.object.position);
+					lastQuaternion.copy(scope.object.quaternion);
+					zoomChanged = false;
+
+					return true;
+				}
+				return false;
+			};
+		}();
+
+		this.dispose = function () {
+			scope.domElement.removeEventListener('contextmenu', onContextMenu, false);
+			scope.domElement.removeEventListener('mousedown', onMouseDown, false);
+			scope.domElement.removeEventListener('wheel', onMouseWheel, false);
+
+			scope.domElement.removeEventListener('touchstart', onTouchStart, false);
+			scope.domElement.removeEventListener('touchend', onTouchEnd, false);
+			scope.domElement.removeEventListener('touchmove', onTouchMove, false);
+
+			document.removeEventListener('mousemove', onMouseMove, false);
+			document.removeEventListener('mouseup', onMouseUp, false);
+
+			window.removeEventListener('keydown', onKeyDown, false);
+
+			//scope.dispatchEvent({ type: 'dispose' }); // should this be added here?
+		};
+
+		//
+		// internals
+		//
+
+		var scope = this;
+
+		var changeEvent = { type: 'change' };
+		var startEvent = { type: 'start' };
+		var endEvent = { type: 'end' };
+
+		var STATE = { NONE: - 1, ROTATE: 0, DOLLY: 1, PAN: 2, TOUCH_ROTATE: 3, TOUCH_DOLLY: 4, TOUCH_PAN: 5 };
+
+		var state = STATE.NONE;
+
+		var EPS = 0.000001;
+
+		// current position in spherical coordinates
+		var spherical = new THREE.Spherical();
+		var sphericalDelta = new THREE.Spherical();
+
+		var scale = 1;
+		var panOffset = new THREE.Vector3();
+		var zoomChanged = false;
+
+		var rotateStart = new THREE.Vector2();
+		var rotateEnd = new THREE.Vector2();
+		var rotateDelta = new THREE.Vector2();
+
+		var panStart = new THREE.Vector2();
+		var panEnd = new THREE.Vector2();
+		var panDelta = new THREE.Vector2();
+
+		var dollyStart = new THREE.Vector2();
+		var dollyEnd = new THREE.Vector2();
+		var dollyDelta = new THREE.Vector2();
+
+		function getAutoRotationAngle() {
+			return 2 * Math.PI / 60 / 60 * scope.autoRotateSpeed;
+		}
+
+		function getZoomScale() {
+			return Math.pow(0.95, scope.zoomSpeed);
+		}
+
+		function rotateLeft(angle) {
+			sphericalDelta.theta -= angle;
+		}
+
+		function rotateUp(angle) {
+			sphericalDelta.phi -= angle;
+		}
+
+		var panLeft = function () {
+			var v = new THREE.Vector3();
+			return function panLeft(distance, objectMatrix) {
+				v.setFromMatrixColumn(objectMatrix, 0); // get X column of objectMatrix
+				v.multiplyScalar(- distance);
+
+				panOffset.add(v);
+			};
+		}();
+
+		var panUp = function () {
+			var v = new THREE.Vector3();
+			return function panUp(distance, objectMatrix) {
+				v.setFromMatrixColumn(objectMatrix, 1); // get Y column of objectMatrix
+				v.multiplyScalar(distance);
+
+				panOffset.add(v);
+			};
+		}();
+
+		// deltaX and deltaY are in pixels; right and down are positive
+		var pan = function () {
+			var offset = new THREE.Vector3();
+			return function pan(deltaX, deltaY) {
+				var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+				if (scope.object instanceof THREE.PerspectiveCamera) {
+					// perspective
+					var position = scope.object.position;
+					offset.copy(position).sub(scope.target);
+					var targetDistance = offset.length();
+
+					// half of the fov is center to top of screen
+					targetDistance *= Math.tan((scope.object.fov / 2) * Math.PI / 180.0);
+
+					// we actually don't use screenWidth, since perspective camera is fixed to screen height
+					panLeft(2 * deltaX * targetDistance / element.clientHeight, scope.object.matrix);
+					panUp(2 * deltaY * targetDistance / element.clientHeight, scope.object.matrix);
+				} else if (scope.object instanceof THREE.OrthographicCamera) {
+					// orthographic
+					panLeft(deltaX * (scope.object.right - scope.object.left) / scope.object.zoom / element.clientWidth, scope.object.matrix);
+					panUp(deltaY * (scope.object.top - scope.object.bottom) / scope.object.zoom / element.clientHeight, scope.object.matrix);
+				} else {
+					// camera neither orthographic nor perspective
+					console.warn('WARNING: OrbitControls.js encountered an unknown camera type - pan disabled.');
+					scope.enablePan = false;
+				}
+			};
+		}();
+
+		function dollyIn(dollyScale) {
+			if (scope.object instanceof THREE.PerspectiveCamera) {
+				scale /= dollyScale;
+			} else if (scope.object instanceof THREE.OrthographicCamera) {
+				scope.object.zoom = Math.max(scope.minZoom, Math.min(scope.maxZoom, scope.object.zoom * dollyScale));
+				scope.object.updateProjectionMatrix();
+				zoomChanged = true;
+			} else {
+				console.warn('WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.');
+				scope.enableZoom = false;
 			}
 		}
-		
-		return false;
+
+		function dollyOut(dollyScale) {
+			if (scope.object instanceof THREE.PerspectiveCamera) {
+				scale *= dollyScale;
+			} else if (scope.object instanceof THREE.OrthographicCamera) {
+				scope.object.zoom = Math.max(scope.minZoom, Math.min(scope.maxZoom, scope.object.zoom / dollyScale));
+				scope.object.updateProjectionMatrix();
+				zoomChanged = true;
+			} else {
+				console.warn('WARNING: OrbitControls.js encountered an unknown camera type - dolly/zoom disabled.');
+				scope.enableZoom = false;
+			}
+		}
+
+		//
+		// event callbacks - update the object state
+		//
+
+		function handleMouseDownRotate(event) {
+			rotateStart.set(event.clientX, event.clientY);
+
+		}
+
+		function handleMouseDownDolly(event) {
+			dollyStart.set(event.clientX, event.clientY);
+
+		}
+
+		function handleMouseDownPan(event) {
+			panStart.set(event.clientX, event.clientY);
+
+		}
+
+		function handleMouseMoveRotate(event) {
+			rotateEnd.set(event.clientX, event.clientY);
+			rotateDelta.subVectors(rotateEnd, rotateStart);
+			var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+			// rotating across whole screen goes 360 degrees around
+			rotateLeft(2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed);
+			// rotating up and down along whole screen attempts to go 360, but limited to 180
+			rotateUp(2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed);
+			rotateStart.copy(rotateEnd);
+			scope.update();
+		}
+
+		function handleMouseMoveDolly(event) {
+			dollyEnd.set(event.clientX, event.clientY);
+			dollyDelta.subVectors(dollyEnd, dollyStart);
+			if (dollyDelta.y > 0) {
+				dollyIn(getZoomScale());
+			} else if (dollyDelta.y < 0) {
+				dollyOut(getZoomScale());
+			}
+			dollyStart.copy(dollyEnd);
+			scope.update();
+		}
+
+		function handleMouseMovePan(event) {
+			panEnd.set(event.clientX, event.clientY);
+			panDelta.subVectors(panEnd, panStart);
+			pan(panDelta.x, panDelta.y);
+			panStart.copy(panEnd);
+			scope.update();
+		}
+
+		function handleMouseUp(event) {
+		}
+
+		function handleMouseWheel(event) {
+			if (event.deltaY < 0) {
+				dollyOut(getZoomScale());
+			} else if (event.deltaY > 0) {
+				dollyIn(getZoomScale());
+			}
+			scope.update();
+		}
+
+		function handleKeyDown(event) {
+			switch (event.keyCode) {
+				case scope.keys.UP:
+					pan(0, scope.keyPanSpeed);
+					scope.update();
+					break;
+
+				case scope.keys.BOTTOM:
+					pan(0, - scope.keyPanSpeed);
+					scope.update();
+					break;
+
+				case scope.keys.LEFT:
+					pan(scope.keyPanSpeed, 0);
+					scope.update();
+					break;
+
+				case scope.keys.RIGHT:
+					pan(- scope.keyPanSpeed, 0);
+					scope.update();
+					break;
+			}
+
+		}
+
+		function handleTouchStartRotate(event) {
+			rotateStart.set(event.touches[ 0 ].pageX, event.touches[ 0 ].pageY);
+
+		}
+
+		function handleTouchStartDolly(event) {
+			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+			var distance = Math.sqrt(dx * dx + dy * dy);
+			dollyStart.set(0, distance);
+		}
+
+		function handleTouchStartPan(event) {
+			panStart.set(event.touches[ 0 ].pageX, event.touches[ 0 ].pageY);
+		}
+
+		function handleTouchMoveRotate(event) {
+			rotateEnd.set(event.touches[ 0 ].pageX, event.touches[ 0 ].pageY);
+			rotateDelta.subVectors(rotateEnd, rotateStart);
+			var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+			rotateLeft(2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed);
+			rotateUp(2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed);
+			rotateStart.copy(rotateEnd);
+			scope.update();
+
+		}
+
+		function handleTouchMoveDolly(event) {
+			var dx = event.touches[ 0 ].pageX - event.touches[ 1 ].pageX;
+			var dy = event.touches[ 0 ].pageY - event.touches[ 1 ].pageY;
+			var distance = Math.sqrt(dx * dx + dy * dy);
+			dollyEnd.set(0, distance);
+			dollyDelta.subVectors(dollyEnd, dollyStart);
+			if (dollyDelta.y > 0) {
+				dollyOut(getZoomScale());
+			} else if (dollyDelta.y < 0) {
+				dollyIn(getZoomScale());
+			}
+			dollyStart.copy(dollyEnd);
+			scope.update();
+
+		}
+
+		function handleTouchMovePan(event) {
+			panEnd.set(event.touches[ 0 ].pageX, event.touches[ 0 ].pageY);
+			panDelta.subVectors(panEnd, panStart);
+			pan(panDelta.x, panDelta.y);
+			panStart.copy(panEnd);
+			scope.update();
+		}
+
+		function handleTouchEnd(event) {
+		}
+
+		//
+		// event handlers - FSM: listen for events and reset state
+		//
+
+		function onMouseDown(event) {
+			if (scope.enabled === false) return;
+			switch (event.button) {
+				case scope.mouseButtons.ORBIT:
+					if (scope.enableRotate === false) return;
+					handleMouseDownRotate(event);
+					state = STATE.ROTATE;
+					break;
+
+				case scope.mouseButtons.ZOOM:
+					if (scope.enableZoom === false) return;
+					handleMouseDownDolly(event);
+					state = STATE.DOLLY;
+					break;
+
+				case scope.mouseButtons.PAN:
+					if (scope.enablePan === false) return;
+					handleMouseDownPan(event);
+					state = STATE.PAN;
+					break;
+			}
+
+			event.preventDefault();
+			if (state !== STATE.NONE) {
+				document.addEventListener('mousemove', onMouseMove, false);
+				document.addEventListener('mouseup', onMouseUp, false);
+				scope.dispatchEvent(startEvent);
+			}
+		}
+
+		function onMouseMove(event) {
+			if (scope.enabled === false) return;
+			switch (state) {
+				case STATE.ROTATE:
+					if (scope.enableRotate === false) return;
+					handleMouseMoveRotate(event);
+					break;
+
+				case STATE.DOLLY:
+					if (scope.enableZoom === false) return;
+					handleMouseMoveDolly(event);
+					break;
+
+				case STATE.PAN:
+					if (scope.enablePan === false) return;
+					handleMouseMovePan(event);
+					break;
+			}
+			event.preventDefault();
+		}
+
+		function onMouseUp(event) {
+			if (scope.enabled === false) return;
+			handleMouseUp(event);
+			document.removeEventListener('mousemove', onMouseMove, false);
+			document.removeEventListener('mouseup', onMouseUp, false);
+			scope.dispatchEvent(endEvent);
+			state = STATE.NONE;
+		}
+
+		function onMouseWheel(event) {
+			if (scope.enabled === false || scope.enableZoom === false || (state !== STATE.NONE && state !== STATE.ROTATE)) return;
+			event.preventDefault();
+			event.stopPropagation();
+			handleMouseWheel(event);
+			scope.dispatchEvent(startEvent); // not sure why these are here...
+			scope.dispatchEvent(endEvent);
+		}
+
+		function onKeyDown(event) {
+			if (scope.enabled === false || scope.enableKeys === false || scope.enablePan === false) return;
+			handleKeyDown(event);
+		}
+
+		function onTouchStart(event) {
+			if (scope.enabled === false) return;
+			switch (event.touches.length) {
+				case 1:	// one-fingered touch: rotate
+					if (scope.enableRotate === false) return;
+					handleTouchStartRotate(event);
+					state = STATE.TOUCH_ROTATE;
+					break;
+
+				case 2:	// two-fingered touch: dolly
+					if (scope.enableZoom === false) return;
+					handleTouchStartDolly(event);
+					state = STATE.TOUCH_DOLLY;
+					break;
+
+				case 3: // three-fingered touch: pan
+					if (scope.enablePan === false) return;
+					handleTouchStartPan(event);
+					state = STATE.TOUCH_PAN;
+					break;
+
+				default:
+					state = STATE.NONE;
+			}
+
+			if (state !== STATE.NONE) {
+				scope.dispatchEvent(startEvent);
+			}
+
+		}
+
+		function onTouchMove(event) {
+			if (scope.enabled === false) return;
+			switch (event.touches.length) {
+				case 1: // one-fingered touch: rotate
+					if (scope.enableRotate === false) return;
+					if (state !== STATE.TOUCH_ROTATE) return; // is this needed?...
+					handleTouchMoveRotate(event);
+					break;
+
+				case 2: // two-fingered touch: dolly
+					if (scope.enableZoom === false) return;
+					if (state !== STATE.TOUCH_DOLLY) return; // is this needed?...
+					handleTouchMoveDolly(event);
+					break;
+
+				case 3: // three-fingered touch: pan
+					if (scope.enablePan === false) return;
+					if (state !== STATE.TOUCH_PAN) return; // is this needed?...
+					handleTouchMovePan(event);
+					break;
+
+				default:
+					state = STATE.NONE;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+		}
+
+		function onTouchEnd(event) {
+			if (scope.enabled === false) return;
+			handleTouchEnd(event);
+			scope.dispatchEvent(endEvent);
+			state = STATE.NONE;
+		}
+
+		function onContextMenu(event) {
+			if (scope.enabled === false || scope.enablePan === false) return;
+			event.preventDefault();
+		}
+
+		//
+
+		scope.domElement.addEventListener('contextmenu', onContextMenu, false);
+
+		scope.domElement.addEventListener('mousedown', onMouseDown, false);
+		scope.domElement.addEventListener('wheel', onMouseWheel, false);
+
+		scope.domElement.addEventListener('touchstart', onTouchStart, false);
+		scope.domElement.addEventListener('touchend', onTouchEnd, false);
+		scope.domElement.addEventListener('touchmove', onTouchMove, false);
+
+		window.addEventListener('keydown', onKeyDown, false);
+
+		// force an update at start
+
+		this.update();
+	};
+
+	this.OrbitControls.prototype = Object.create(THREE.EventDispatcher.prototype);
+	this.OrbitControls.prototype.constructor = this.OrbitControls;
+	// ============
+
+	this.SkinControl = function(skinViewer) {
+		this.enableAnimationControl = true;
+		this.skinViewer = skinViewer;
+
+		this.orbitControls = new skinpreview3d.OrbitControls(skinViewer.camera, skinViewer.renderer.domElement);
+		this.orbitControls.enablePan = false;
+		this.orbitControls.target = new THREE.Vector3(0, -12 ,0);
+		this.orbitControls.minDistance = 10;
+		this.orbitControls.maxDistance = 256;
+		this.orbitControls.update();
+
+		this.skinViewer.domElement.addEventListener('contextmenu', e => {
+			if(this.enableAnimationControl) {
+				e.preventDefault();
+				this.skinViewer.animationPaused = !this.skinViewer.animationPaused;
+			}
+		}, false);
 	}
 
 }
 
-(function ($) {
-	'use strict';
+if(window.jQuery){
+	(function($) {
+		$.fn.skinPreview3d = function (options) {
+			var skinViewer = new skinpreview3d.SkinViewer(this.get(0), options.width, options.height, options.slim === true);
+			skinViewer.skinUrl = options.skinUrl;
+			if(options.capeUrl != null)
+				skinViewer.capeUrl = options.capeUrl;
 
-	$.fn.skinPreview3D = function (options) { 
-		var sp = new SkinPreview3D(this, options.canvasID, options.capeUrl);		
-		sp.setSkin(options.skinUrl);
-		
-		if(options.capeUrl){
-			sp.setCape(options.capeUrl);
-		}
-
-	};
-	
-} (window.jQuery));
-
-function SkinPreview3D(model, canvasID, hasCape){
-	var scene, camera, renderer;
-	var geometry, material, mesh;
-
-	var rightLeg2Box, leftLeg2Box;
-
-	var radius = 32;
-
-	var canvasW = 470;
-	var canvasH = 620;
-	
-	var isPaused = false;
-	var originMouseX = 0;
-	var rotating = false;
-	var modelRot = 0;
-	var angleRot = 0;
-	var mouseDown = false;
-	
-	var util = new SkinUtil();
-
-	camera = new THREE.PerspectiveCamera(75, canvasW / canvasH, 1, 10000);
-	camera.position.y = -12;
-
-	scene = new THREE.Scene();
-
-	canvas = document.getElementById(canvasID);
-	canvas.width = 64;
-	canvas.height = 64;
-	var context = canvas.getContext("2d");
-	
-	//Cape Part
-	var canvas2 = document.getElementById('cape');
-	canvas2.width = 22;
-    canvas2.height = 17;
-    var context2 = canvas2.getContext("2d");
-	var capeTexture = new THREE.Texture(canvas2);
-	capeTexture.magFilter = THREE.NearestFilter;
-	capeTexture.minFilter = THREE.NearestMipMapNearestFilter;
-
-	var skinTexture = new THREE.Texture(canvas);
-	skinTexture.magFilter = THREE.NearestFilter;
-	skinTexture.minFilter = THREE.NearestMipMapNearestFilter;
-
-	material = new THREE.MeshBasicMaterial({map: skinTexture, side: THREE.FrontSide});
-	material2 = new THREE.MeshBasicMaterial({map: skinTexture, transparent: true, opacity: 1, angleRotTest: 0.5, side: THREE.DoubleSide});
-
-	// Get the texture for the cape
-	material3 = new THREE.MeshBasicMaterial({map: capeTexture});	
-	
-	var img = new Image();
-	img.crossOrigin = '';
-	var hasAnimate = false;
-	img.onload = function() {
-
-		context.clearRect(0, 0, 64, 64);		
-		context.drawImage(img, 0, 0);
-	
-		if(img.height == 32) util.convert6432To6464(context);
-		
-		//these need work
-		//util.fixNonVisible(context);
-		//util.fixOverlay(context);
-		
-		skinTexture.needsUpdate = true;
-
-		material.needsUpdate = true;
-		material2.needsUpdate = true;
-		
-		if(!hasAnimate)
-		{
-			initializeSkin();
-			hasAnimate = true;
-			drawSkin();
-		}
-	}
-	
-	img.onerror = function() {
-		console.log("Failed loading " + img.src);
-	}
-
-	var img2=new Image();
-	img2.crossOrigin = '';
-	img2.onload = function() {
-
-		console.log("Loaded Cape");
-		
-		// Erase what was on the canvas before
-		context2.clearRect(0, 0, canvas2.width, canvas2.height);
-		
-		// Draw the image to the canvas
-		context2.drawImage(img2, 0, 0);
-		
-		capeTexture.needsUpdate = true;
-		material3.needsUpdate = true;
-		
-		capeLoaded=true;
-	}
-	
-	this.setSkin = function(url){
-		img.src = url;	
-	}	
-	
-	this.setCape = function(url){
-		img2.src = url;	
-	}
-
-	function initializeSkin() {
-		// Head Parts
-		var headTop = [
-			new THREE.Vector2(0.125, 0.875),
-			new THREE.Vector2(0.25, 0.875),
-			new THREE.Vector2(0.25, 1),
-			new THREE.Vector2(0.125, 1)
-		];
-		var headBottom = [
-			new THREE.Vector2(0.25, 0.875),
-			new THREE.Vector2(0.375, 0.875),
-			new THREE.Vector2(0.375, 1),
-			new THREE.Vector2(0.25, 1)
-		];
-		var headLeft = [
-			new THREE.Vector2(0, 0.75),
-			new THREE.Vector2(0.125, 0.75),
-			new THREE.Vector2(0.125, 0.875),
-			new THREE.Vector2(0, 0.875)
-		];
-		var headFront = [
-			new THREE.Vector2(0.125, 0.75),
-			new THREE.Vector2(0.25, 0.75),
-			new THREE.Vector2(0.25 ,0.875),
-			new THREE.Vector2(0.125 ,0.875)
-		];
-		var headRight = [
-			new THREE.Vector2(0.25, 0.75),
-			new THREE.Vector2(0.375, 0.75),
-			new THREE.Vector2(0.375, 0.875),
-			new THREE.Vector2(0.25, 0.875)
-		];
-		var headBack = [
-			new THREE.Vector2(0.375, 0.75),
-			new THREE.Vector2(0.5, 0.75),
-			new THREE.Vector2(0.5, 0.875),
-			new THREE.Vector2(0.375, 0.875)
-		];
-		
-		headBox = new THREE.BoxGeometry(8, 8, 8, 0, 0, 0);
-		headBox.faceVertexUvs[0] = [];
-		headBox.faceVertexUvs[0][0] = [headRight[3], headRight[0], headRight[2]];
-		headBox.faceVertexUvs[0][1] = [headRight[0], headRight[1], headRight[2]];
-		headBox.faceVertexUvs[0][2] = [headLeft[3], headLeft[0], headLeft[2]];
-		headBox.faceVertexUvs[0][3] = [headLeft[0], headLeft[1], headLeft[2]];
-		headBox.faceVertexUvs[0][4] = [headTop[3], headTop[0], headTop[2]];
-		headBox.faceVertexUvs[0][5] = [headTop[0], headTop[1], headTop[2]];
-		headBox.faceVertexUvs[0][6] = [headBottom[0], headBottom[3], headBottom[1]];
-		headBox.faceVertexUvs[0][7] = [headBottom[3], headBottom[2], headBottom[1]];
-		headBox.faceVertexUvs[0][8] = [headFront[3], headFront[0], headFront[2]];
-		headBox.faceVertexUvs[0][9] = [headFront[0], headFront[1], headFront[2]];
-		headBox.faceVertexUvs[0][10] = [headBack[3], headBack[0], headBack[2]];
-		headBox.faceVertexUvs[0][11] = [headBack[0], headBack[1], headBack[2]];
-		headMesh = new THREE.Mesh(headBox, material);
-		headMesh.name = "head";
-		scene.add(headMesh);
-		
-		// Body Parts
-		var bodyTop = [
-			new THREE.Vector2(0.3125, 0.6875),
-			new THREE.Vector2(0.4375, 0.6875),
-			new THREE.Vector2(0.4375, 0.75),
-			new THREE.Vector2(0.3125, 0.75)
-		];
-		var bodyBottom = [
-			new THREE.Vector2(0.4375, 0.6875),
-			new THREE.Vector2(0.5625, 0.6875),
-			new THREE.Vector2(0.5625, 0.75),
-			new THREE.Vector2(0.4375, 0.75)
-		];
-		var bodyLeft = [
-			new THREE.Vector2(0.25, 0.5),
-			new THREE.Vector2(0.3125, 0.5),
-			new THREE.Vector2(0.3125, 0.6875),
-			new THREE.Vector2(0.25, 0.6875)
-		];
-		var bodyFront = [
-			new THREE.Vector2(0.3125, 0.5),
-			new THREE.Vector2(0.4375, 0.5),
-			new THREE.Vector2(0.4375, 0.6875),
-			new THREE.Vector2(0.3125, 0.6875)
-		];
-		var bodyRight = [
-			new THREE.Vector2(0.4375, 0.5),
-			new THREE.Vector2(0.5, 0.5),
-			new THREE.Vector2(0.5, 0.6875),
-			new THREE.Vector2(0.4375, 0.6875)
-		];
-		var bodyBack = [
-			new THREE.Vector2(0.5, 0.5),
-			new THREE.Vector2(0.625, 0.5),
-			new THREE.Vector2(0.625, 0.6875),
-			new THREE.Vector2(0.5, 0.6875)
-		];
-		
-		bodyBox = new THREE.BoxGeometry(8, 12, 4, 0, 0, 0);
-		bodyBox.faceVertexUvs[0] = [];
-		bodyBox.faceVertexUvs[0][0] = [bodyRight[3], bodyRight[0], bodyRight[2]];
-		bodyBox.faceVertexUvs[0][1] = [bodyRight[0], bodyRight[1], bodyRight[2]];
-		bodyBox.faceVertexUvs[0][2] = [bodyLeft[3], bodyLeft[0], bodyLeft[2]];
-		bodyBox.faceVertexUvs[0][3] = [bodyLeft[0], bodyLeft[1], bodyLeft[2]];
-		bodyBox.faceVertexUvs[0][4] = [bodyTop[3], bodyTop[0], bodyTop[2]];
-		bodyBox.faceVertexUvs[0][5] = [bodyTop[0], bodyTop[1], bodyTop[2]];
-		bodyBox.faceVertexUvs[0][6] = [bodyBottom[0], bodyBottom[3], bodyBottom[1]];
-		bodyBox.faceVertexUvs[0][7] = [bodyBottom[3], bodyBottom[2], bodyBottom[1]];
-		bodyBox.faceVertexUvs[0][8] = [bodyFront[3], bodyFront[0], bodyFront[2]];
-		bodyBox.faceVertexUvs[0][9] = [bodyFront[0], bodyFront[1], bodyFront[2]];
-		bodyBox.faceVertexUvs[0][10] = [bodyBack[3], bodyBack[0], bodyBack[2]];
-		bodyBox.faceVertexUvs[0][11] = [bodyBack[0], bodyBack[1], bodyBack[2]];
-		bodyMesh = new THREE.Mesh(bodyBox, material);
-		bodyMesh.name = "body";
-		bodyMesh.position.y = -10;
-		scene.add(bodyMesh);
-		
-		// Right Arm Parts
-		var rightArmTop = [
-			new THREE.Vector2(0.6875, 0.6875),
-			new THREE.Vector2(0.75, 0.6875),
-			new THREE.Vector2(0.75, 0.75),
-			new THREE.Vector2(0.6875, 0.75),
-		];
-		var rightArmBottom = [
-			new THREE.Vector2(0.75, 0.6875),
-			new THREE.Vector2(0.8125, 0.6875),
-			new THREE.Vector2(0.8125, 0.75),
-			new THREE.Vector2(0.75, 0.75)
-		];
-		var rightArmLeft = [
-			new THREE.Vector2(0.625, 0.5),
-			new THREE.Vector2(0.6875, 0.5),
-			new THREE.Vector2(0.6875, 0.6875),
-			new THREE.Vector2(0.625, 0.6875)
-		];
-		var rightArmFront = [
-			new THREE.Vector2(0.6875, 0.5),
-			new THREE.Vector2(0.75, 0.5),
-			new THREE.Vector2(0.75, 0.6875),
-			new THREE.Vector2(0.6875, 0.6875)
-		];
-		var rightArmRight = [
-			new THREE.Vector2(0.75, 0.5),
-			new THREE.Vector2(0.8125, 0.5),
-			new THREE.Vector2(0.8125, 0.6875),
-			new THREE.Vector2(0.75, 0.6875)
-		];
-		var rightArmBack = [
-			new THREE.Vector2(0.8125, 0.5),
-			new THREE.Vector2(0.875, 0.5),
-			new THREE.Vector2(0.875, 0.6875),
-			new THREE.Vector2(0.8125, 0.6875)
-		];
-		
-		rightArmBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
-		rightArmBox.faceVertexUvs[0] = [];
-		rightArmBox.faceVertexUvs[0][0] = [rightArmRight[3], rightArmRight[0], rightArmRight[2]];
-		rightArmBox.faceVertexUvs[0][1] = [rightArmRight[0], rightArmRight[1], rightArmRight[2]];
-		rightArmBox.faceVertexUvs[0][2] = [rightArmLeft[3], rightArmLeft[0], rightArmLeft[2]];
-		rightArmBox.faceVertexUvs[0][3] = [rightArmLeft[0], rightArmLeft[1], rightArmLeft[2]];
-		rightArmBox.faceVertexUvs[0][4] = [rightArmTop[3], rightArmTop[0], rightArmTop[2]];
-		rightArmBox.faceVertexUvs[0][5] = [rightArmTop[0], rightArmTop[1], rightArmTop[2]];
-		rightArmBox.faceVertexUvs[0][6] = [rightArmBottom[0], rightArmBottom[3], rightArmBottom[1]];
-		rightArmBox.faceVertexUvs[0][7] = [rightArmBottom[3], rightArmBottom[2], rightArmBottom[1]];
-		rightArmBox.faceVertexUvs[0][8] = [rightArmFront[3], rightArmFront[0], rightArmFront[2]];
-		rightArmBox.faceVertexUvs[0][9] = [rightArmFront[0], rightArmFront[1], rightArmFront[2]];
-		rightArmBox.faceVertexUvs[0][10] = [rightArmBack[3], rightArmBack[0], rightArmBack[2]];
-		rightArmBox.faceVertexUvs[0][11] = [rightArmBack[0], rightArmBack[1], rightArmBack[2]];
-		rightArmMesh = new THREE.Mesh(rightArmBox, material);
-		rightArmMesh.name = "rightArm";
-		rightArmMesh.position.y = -10;
-		rightArmMesh.position.x = -6;
-		scene.add(rightArmMesh);
-		
-		// Left Arm Parts
-		var leftArmTop = [
-			new THREE.Vector2(0.5625, 0.1875),
-			new THREE.Vector2(0.625, 0.1875),
-			new THREE.Vector2(0.625, 0.25),
-			new THREE.Vector2(0.5625, 0.25),
-		];
-		var leftArmBottom = [
-			new THREE.Vector2(0.625, 0.1875),
-			new THREE.Vector2(0.6875, 0.1875),
-			new THREE.Vector2(0.6875, 0.25),
-			new THREE.Vector2(0.625, 0.25)
-		];
-		var leftArmLeft = [
-			new THREE.Vector2(0.5, 0),
-			new THREE.Vector2(0.5625, 0),
-			new THREE.Vector2(0.5625, 0.1875),
-			new THREE.Vector2(0.5, 0.1875)
-		];
-		var leftArmFront = [
-			new THREE.Vector2(0.5625, 0),
-			new THREE.Vector2(0.625, 0),
-			new THREE.Vector2(0.625, 0.1875),
-			new THREE.Vector2(0.5625, 0.1875)
-		];
-		var leftArmRight = [
-			new THREE.Vector2(0.625, 0),
-			new THREE.Vector2(0.6875, 0),
-			new THREE.Vector2(0.6875, 0.1875),
-			new THREE.Vector2(0.625, 0.1875)
-		];
-		var leftArmBack = [
-			new THREE.Vector2(0.6875, 0),
-			new THREE.Vector2(0.75, 0),
-			new THREE.Vector2(0.75, 0.1875),
-			new THREE.Vector2(0.6875, 0.1875)
-		];
-		
-		leftArmBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
-		leftArmBox.faceVertexUvs[0] = [];
-		leftArmBox.faceVertexUvs[0][0] = [leftArmRight[3], leftArmRight[0], leftArmRight[2]];
-		leftArmBox.faceVertexUvs[0][1] = [leftArmRight[0], leftArmRight[1], leftArmRight[2]];
-		leftArmBox.faceVertexUvs[0][2] = [leftArmLeft[3], leftArmLeft[0], leftArmLeft[2]];
-		leftArmBox.faceVertexUvs[0][3] = [leftArmLeft[0], leftArmLeft[1], leftArmLeft[2]];
-		leftArmBox.faceVertexUvs[0][4] = [leftArmTop[3], leftArmTop[0], leftArmTop[2]];
-		leftArmBox.faceVertexUvs[0][5] = [leftArmTop[0], leftArmTop[1], leftArmTop[2]];
-		leftArmBox.faceVertexUvs[0][6] = [leftArmBottom[0], leftArmBottom[3], leftArmBottom[1]];
-		leftArmBox.faceVertexUvs[0][7] = [leftArmBottom[3], leftArmBottom[2], leftArmBottom[1]];
-		leftArmBox.faceVertexUvs[0][8] = [leftArmFront[3], leftArmFront[0], leftArmFront[2]];
-		leftArmBox.faceVertexUvs[0][9] = [leftArmFront[0], leftArmFront[1], leftArmFront[2]];
-		leftArmBox.faceVertexUvs[0][10] = [leftArmBack[3], leftArmBack[0], leftArmBack[2]];
-		leftArmBox.faceVertexUvs[0][11] = [leftArmBack[0], leftArmBack[1], leftArmBack[2]];
-		leftArmMesh = new THREE.Mesh(leftArmBox, material);
-		leftArmMesh.name = "leftArm";
-		leftArmMesh.position.y = -10;
-		leftArmMesh.position.x = 6;
-		scene.add(leftArmMesh);
-		
-		// Right Leg Parts
-		var rightLegTop = [
-			new THREE.Vector2(0.0625, 0.6875),
-			new THREE.Vector2(0.125, 0.6875),
-			new THREE.Vector2(0.125, 0.75),
-			new THREE.Vector2(0.0625, 0.75),
-		];
-		var rightLegBottom = [
-			new THREE.Vector2(0.125, 0.6875),
-			new THREE.Vector2(0.1875, 0.6875),
-			new THREE.Vector2(0.1875, 0.75),
-			new THREE.Vector2(0.125, 0.75)
-		];
-		var rightLegLeft = [
-			new THREE.Vector2(0, 0.5),
-			new THREE.Vector2(0.0625, 0.5),
-			new THREE.Vector2(0.0625, 0.6875),
-			new THREE.Vector2(0, 0.6875)
-		];
-		var rightLegFront = [
-			new THREE.Vector2(0.0625, 0.5),
-			new THREE.Vector2(0.125, 0.5),
-			new THREE.Vector2(0.125, 0.6875),
-			new THREE.Vector2(0.0625, 0.6875)
-		];
-		var rightLegRight = [
-			new THREE.Vector2(0.125, 0.5),
-			new THREE.Vector2(0.1875, 0.5),
-			new THREE.Vector2(0.1875, 0.6875),
-			new THREE.Vector2(0.125, 0.6875)
-		];
-		var rightLegBack = [
-			new THREE.Vector2(0.1875, 0.5),
-			new THREE.Vector2(0.25, 0.5),
-			new THREE.Vector2(0.25, 0.6875),
-			new THREE.Vector2(0.1875, 0.6875)
-		];
-		
-		rightLegBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
-		rightLegBox.faceVertexUvs[0] = [];
-		rightLegBox.faceVertexUvs[0][0] = [rightLegRight[3], rightLegRight[0], rightLegRight[2]];
-		rightLegBox.faceVertexUvs[0][1] = [rightLegRight[0], rightLegRight[1], rightLegRight[2]];
-		rightLegBox.faceVertexUvs[0][2] = [rightLegLeft[3], rightLegLeft[0], rightLegLeft[2]];
-		rightLegBox.faceVertexUvs[0][3] = [rightLegLeft[0], rightLegLeft[1], rightLegLeft[2]];
-		rightLegBox.faceVertexUvs[0][4] = [rightLegTop[3], rightLegTop[0], rightLegTop[2]];
-		rightLegBox.faceVertexUvs[0][5] = [rightLegTop[0], rightLegTop[1], rightLegTop[2]];
-		rightLegBox.faceVertexUvs[0][6] = [rightLegBottom[0], rightLegBottom[3], rightLegBottom[1]];
-		rightLegBox.faceVertexUvs[0][7] = [rightLegBottom[3], rightLegBottom[2], rightLegBottom[1]];
-		rightLegBox.faceVertexUvs[0][8] = [rightLegFront[3], rightLegFront[0], rightLegFront[2]];
-		rightLegBox.faceVertexUvs[0][9] = [rightLegFront[0], rightLegFront[1], rightLegFront[2]];
-		rightLegBox.faceVertexUvs[0][10] = [rightLegBack[3], rightLegBack[0], rightLegBack[2]];
-		rightLegBox.faceVertexUvs[0][11] = [rightLegBack[0], rightLegBack[1], rightLegBack[2]];
-		rightLegMesh = new THREE.Mesh(rightLegBox, material);
-		rightLegMesh.name = "rightLeg"
-		rightLegMesh.position.y = -22;
-		rightLegMesh.position.x = -2;
-		scene.add(rightLegMesh);
-		
-		// Left Leg Parts
-		var leftLegTop = [
-			new THREE.Vector2(0.3125, 0.1875),
-			new THREE.Vector2(0.375, 0.1875),
-			new THREE.Vector2(0.375, 0.25),
-			new THREE.Vector2(0.3125, 0.25),
-		];
-		var leftLegBottom = [
-			new THREE.Vector2(0.375, 0.1875),
-			new THREE.Vector2(0.4375, 0.1875),
-			new THREE.Vector2(0.4375, 0.25),
-			new THREE.Vector2(0.375, 0.25)
-		];
-		var leftLegLeft = [
-			new THREE.Vector2(0.25, 0),
-			new THREE.Vector2(0.3125, 0),
-			new THREE.Vector2(0.3125, 0.1875),
-			new THREE.Vector2(0.25, 0.1875)
-		];
-		var leftLegFront = [
-			new THREE.Vector2(0.3125, 0),
-			new THREE.Vector2(0.375, 0),
-			new THREE.Vector2(0.375, 0.1875),
-			new THREE.Vector2(0.3125, 0.1875)
-		];
-		var leftLegRight = [
-			new THREE.Vector2(0.375, 0),
-			new THREE.Vector2(0.4375, 0),
-			new THREE.Vector2(0.4375, 0.1875),
-			new THREE.Vector2(0.375, 0.1875)
-		];
-		var leftLegBack = [
-			new THREE.Vector2(0.4375, 0),
-			new THREE.Vector2(0.5, 0),
-			new THREE.Vector2(0.5, 0.1875),
-			new THREE.Vector2(0.4375, 0.1875)
-		];
-		leftLegBox = new THREE.BoxGeometry(4, 12, 4, 0, 0, 0);
-		leftLegBox.faceVertexUvs[0] = [];
-		leftLegBox.faceVertexUvs[0][0] = [leftLegRight[3], leftLegRight[0], leftLegRight[2]];
-		leftLegBox.faceVertexUvs[0][1] = [leftLegRight[0], leftLegRight[1], leftLegRight[2]];
-		leftLegBox.faceVertexUvs[0][2] = [leftLegLeft[3], leftLegLeft[0], leftLegLeft[2]];
-		leftLegBox.faceVertexUvs[0][3] = [leftLegLeft[0], leftLegLeft[1], leftLegLeft[2]];
-		leftLegBox.faceVertexUvs[0][4] = [leftLegTop[3], leftLegTop[0], leftLegTop[2]];
-		leftLegBox.faceVertexUvs[0][5] = [leftLegTop[0], leftLegTop[1], leftLegTop[2]];
-		leftLegBox.faceVertexUvs[0][6] = [leftLegBottom[0], leftLegBottom[3], leftLegBottom[1]];
-		leftLegBox.faceVertexUvs[0][7] = [leftLegBottom[3], leftLegBottom[2], leftLegBottom[1]];
-		leftLegBox.faceVertexUvs[0][8] = [leftLegFront[3], leftLegFront[0], leftLegFront[2]];
-		leftLegBox.faceVertexUvs[0][9] = [leftLegFront[0], leftLegFront[1], leftLegFront[2]];
-		leftLegBox.faceVertexUvs[0][10] = [leftLegBack[3], leftLegBack[0], leftLegBack[2]];
-		leftLegBox.faceVertexUvs[0][11] = [leftLegBack[0], leftLegBack[1], leftLegBack[2]];
-		leftLegMesh = new THREE.Mesh(leftLegBox, material);
-		leftLegMesh.name = "leftLeg";
-		leftLegMesh.position.y = -22;
-		leftLegMesh.position.x = 2;
-		scene.add(leftLegMesh);
-		
-		// Head Overlay Parts
-		var head2Top = [
-			new THREE.Vector2(0.625, 0.875),
-			new THREE.Vector2(0.75, 0.875),
-			new THREE.Vector2(0.75, 1),
-			new THREE.Vector2(0.625, 1)
-		];
-		var head2Bottom = [
-			new THREE.Vector2(0.75, 0.875),
-			new THREE.Vector2(0.875, 0.875),
-			new THREE.Vector2(0.875, 1),
-			new THREE.Vector2(0.75, 1)
-		];
-		var head2Left = [
-			new THREE.Vector2(0.5, 0.75),
-			new THREE.Vector2(0.625, 0.75),
-			new THREE.Vector2(0.625, 0.875),
-			new THREE.Vector2(0.5, 0.875)
-		];
-		var head2Front = [
-			new THREE.Vector2(0.625, 0.75),
-			new THREE.Vector2(0.75, 0.75),
-			new THREE.Vector2(0.75, 0.875),
-			new THREE.Vector2(0.625, 0.875)
-		];
-		var head2Right = [
-			new THREE.Vector2(0.75, 0.75),
-			new THREE.Vector2(0.875, 0.75),
-			new THREE.Vector2(0.875, 0.875),
-			new THREE.Vector2(0.75, 0.875)
-		];
-		var head2Back = [
-			new THREE.Vector2(0.875, 0.75),
-			new THREE.Vector2(1, 0.75),
-			new THREE.Vector2(1, 0.875),
-			new THREE.Vector2(0.875, 0.875)
-		];
-		head2Box = new THREE.BoxGeometry(9, 9, 9, 0, 0, 0);
-		head2Box.faceVertexUvs[0] = [];
-		head2Box.faceVertexUvs[0][0] = [head2Right[3], head2Right[0], head2Right[2]];
-		head2Box.faceVertexUvs[0][1] = [head2Right[0], head2Right[1], head2Right[2]];
-		head2Box.faceVertexUvs[0][2] = [head2Left[3], head2Left[0], head2Left[2]];
-		head2Box.faceVertexUvs[0][3] = [head2Left[0], head2Left[1], head2Left[2]];
-		head2Box.faceVertexUvs[0][4] = [head2Top[3], head2Top[0], head2Top[2]];
-		head2Box.faceVertexUvs[0][5] = [head2Top[0], head2Top[1], head2Top[2]];
-		head2Box.faceVertexUvs[0][6] = [head2Bottom[0], head2Bottom[3], head2Bottom[1]];
-		head2Box.faceVertexUvs[0][7] = [head2Bottom[3], head2Bottom[2], head2Bottom[1]];
-		head2Box.faceVertexUvs[0][8] = [head2Front[3], head2Front[0], head2Front[2]];
-		head2Box.faceVertexUvs[0][9] = [head2Front[0], head2Front[1], head2Front[2]];
-		head2Box.faceVertexUvs[0][10] = [head2Back[3], head2Back[0], head2Back[2]];
-		head2Box.faceVertexUvs[0][11] = [head2Back[0], head2Back[1], head2Back[2]];
-		head2Mesh = new THREE.Mesh(head2Box, material2);
-		head2Mesh.name = "head2"
-			scene.add(head2Mesh);
-		
-		// Body Overlay Parts
-		var body2Top = [
-			new THREE.Vector2(0.3125, 0.4375),
-			new THREE.Vector2(0.4375, 0.4375),
-			new THREE.Vector2(0.4375, 0.5),
-			new THREE.Vector2(0.3125, 0.5)
-		];
-		var body2Bottom = [
-			new THREE.Vector2(0.4375, 0.4375),
-			new THREE.Vector2(0.5625, 0.4375),
-			new THREE.Vector2(0.5625, 0.5),
-			new THREE.Vector2(0.4375, 0.5)
-		];
-		var body2Left = [
-			new THREE.Vector2(0.25, 0.25),
-			new THREE.Vector2(0.3125, 0.25),
-			new THREE.Vector2(0.3125, 0.4375),
-			new THREE.Vector2(0.25, 0.4375)
-		];
-		var body2Front = [
-			new THREE.Vector2(0.3125, 0.25),
-			new THREE.Vector2(0.4375, 0.25),
-			new THREE.Vector2(0.4375, 0.4375),
-			new THREE.Vector2(0.3125, 0.4375)
-		];
-		var body2Right = [
-			new THREE.Vector2(0.4375, 0.25),
-			new THREE.Vector2(0.5, 0.25),
-			new THREE.Vector2(0.5, 0.4375),
-			new THREE.Vector2(0.4375, 0.4375)
-		];
-		var body2Back = [
-			new THREE.Vector2(0.5, 0.25),
-			new THREE.Vector2(0.625, 0.25),
-			new THREE.Vector2(0.625, 0.4375),
-			new THREE.Vector2(0.5, 0.4375)
-		];
-		body2Box = new THREE.BoxGeometry(9, 13.5, 4.5, 0, 0, 0);
-		body2Box.faceVertexUvs[0] = [];
-		body2Box.faceVertexUvs[0][0] = [body2Right[3], body2Right[0], body2Right[2]];
-		body2Box.faceVertexUvs[0][1] = [body2Right[0], body2Right[1], body2Right[2]];
-		body2Box.faceVertexUvs[0][2] = [body2Left[3], body2Left[0], body2Left[2]];
-		body2Box.faceVertexUvs[0][3] = [body2Left[0], body2Left[1], body2Left[2]];
-		body2Box.faceVertexUvs[0][4] = [body2Top[3], body2Top[0], body2Top[2]];
-		body2Box.faceVertexUvs[0][5] = [body2Top[0], body2Top[1], body2Top[2]];
-		body2Box.faceVertexUvs[0][6] = [body2Bottom[0], body2Bottom[3], body2Bottom[1]];
-		body2Box.faceVertexUvs[0][7] = [body2Bottom[3], body2Bottom[2], body2Bottom[1]];
-		body2Box.faceVertexUvs[0][8] = [body2Front[3], body2Front[0], body2Front[2]];
-		body2Box.faceVertexUvs[0][9] = [body2Front[0], body2Front[1], body2Front[2]];
-		body2Box.faceVertexUvs[0][10] = [body2Back[3], body2Back[0], body2Back[2]];
-		body2Box.faceVertexUvs[0][11] = [body2Back[0], body2Back[1], body2Back[2]];
-		body2Mesh = new THREE.Mesh(body2Box, material2);
-		body2Mesh.name = "body2";
-		body2Mesh.position.y = -10;
-		scene.add(body2Mesh);
-		
-		// Right Arm Overlay Parts
-		var rightArm2Top = [
-			new THREE.Vector2(0.6875, 0.4375),
-			new THREE.Vector2(0.75, 0.4375),
-			new THREE.Vector2(0.75, 0.5),
-			new THREE.Vector2(0.6875, 0.5),
-		];
-		var rightArm2Bottom = [
-			new THREE.Vector2(0.75, 0.4375),
-			new THREE.Vector2(0.8125, 0.4375),
-			new THREE.Vector2(0.8125, 0.5),
-			new THREE.Vector2(0.75, 0.5)
-		];
-		var rightArm2Left = [
-			new THREE.Vector2(0.625, 0.25),
-			new THREE.Vector2(0.6875, 0.25),
-			new THREE.Vector2(0.6875, 0.4375),
-			new THREE.Vector2(0.625, 0.4375)
-		];
-		var rightArm2Front = [
-			new THREE.Vector2(0.6875, 0.25),
-			new THREE.Vector2(0.75, 0.25),
-			new THREE.Vector2(0.75, 0.4375),
-			new THREE.Vector2(0.6875, 0.4375)
-		];
-		var rightArm2Right = [
-			new THREE.Vector2(0.75, 0.25),
-			new THREE.Vector2(0.8125, 0.25),
-			new THREE.Vector2(0.8125, 0.4375),
-			new THREE.Vector2(0.75, 0.4375)
-		];
-		var rightArm2Back = [
-			new THREE.Vector2(0.8125, 0.25),
-			new THREE.Vector2(0.875, 0.25),
-			new THREE.Vector2(0.875, 0.4375),
-			new THREE.Vector2(0.8125, 0.4375)
-		];
-		rightArm2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
-		rightArm2Box.faceVertexUvs[0] = [];
-		rightArm2Box.faceVertexUvs[0][0] = [rightArm2Right[3], rightArm2Right[0], rightArm2Right[2]];
-		rightArm2Box.faceVertexUvs[0][1] = [rightArm2Right[0], rightArm2Right[1], rightArm2Right[2]];
-		rightArm2Box.faceVertexUvs[0][2] = [rightArm2Left[3], rightArm2Left[0], rightArm2Left[2]];
-		rightArm2Box.faceVertexUvs[0][3] = [rightArm2Left[0], rightArm2Left[1], rightArm2Left[2]];
-		rightArm2Box.faceVertexUvs[0][4] = [rightArm2Top[3], rightArm2Top[0], rightArm2Top[2]];
-		rightArm2Box.faceVertexUvs[0][5] = [rightArm2Top[0], rightArm2Top[1], rightArm2Top[2]];
-		rightArm2Box.faceVertexUvs[0][6] = [rightArm2Bottom[0], rightArm2Bottom[3], rightArm2Bottom[1]];
-		rightArm2Box.faceVertexUvs[0][7] = [rightArm2Bottom[3], rightArm2Bottom[2], rightArm2Bottom[1]];
-		rightArm2Box.faceVertexUvs[0][8] = [rightArm2Front[3], rightArm2Front[0], rightArm2Front[2]];
-		rightArm2Box.faceVertexUvs[0][9] = [rightArm2Front[0], rightArm2Front[1], rightArm2Front[2]];
-		rightArm2Box.faceVertexUvs[0][10] = [rightArm2Back[3], rightArm2Back[0], rightArm2Back[2]];
-		rightArm2Box.faceVertexUvs[0][11] = [rightArm2Back[0], rightArm2Back[1], rightArm2Back[2]];
-		rightArm2Mesh = new THREE.Mesh(rightArm2Box, material2);
-		rightArm2Mesh.name = "rightArm2";
-		rightArm2Mesh.position.y = -10;
-		rightArm2Mesh.position.x = -6;
-		scene.add(rightArm2Mesh);
-		
-		// Left Arm Overlay Parts
-		var leftArm2Top = [
-			new THREE.Vector2(0.8125, 0.1875),
-			new THREE.Vector2(0.875, 0.1875),
-			new THREE.Vector2(0.875, 0.25),
-			new THREE.Vector2(0.8125, 0.25),
-		];
-		var leftArm2Bottom = [
-			new THREE.Vector2(0.875, 0.1875),
-			new THREE.Vector2(0.9375, 0.1875),
-			new THREE.Vector2(0.9375, 0.25),
-			new THREE.Vector2(0.875, 0.25)
-		];
-		var leftArm2Left = [
-			new THREE.Vector2(0.75, 0),
-			new THREE.Vector2(0.8125, 0),
-			new THREE.Vector2(0.8125, 0.1875),
-			new THREE.Vector2(0.75, 0.1875)
-		];
-		var leftArm2Front = [
-			new THREE.Vector2(0.8125, 0),
-			new THREE.Vector2(0.875, 0),
-			new THREE.Vector2(0.875, 0.1875),
-			new THREE.Vector2(0.8125, 0.1875)
-		];
-		var leftArm2Right = [
-			new THREE.Vector2(0.875, 0),
-			new THREE.Vector2(0.9375, 0),
-			new THREE.Vector2(0.9375, 0.1875),
-			new THREE.Vector2(0.875, 0.1875)
-		];
-		var leftArm2Back = [
-			new THREE.Vector2(0.9375, 0),
-			new THREE.Vector2(1, 0),
-			new THREE.Vector2(1, 0.1875),
-			new THREE.Vector2(0.9375, 0.1875)
-		];
-		
-		leftArm2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
-		leftArm2Box.faceVertexUvs[0] = [];
-		leftArm2Box.faceVertexUvs[0][0] = [leftArm2Right[3], leftArm2Right[0], leftArm2Right[2]];
-		leftArm2Box.faceVertexUvs[0][1] = [leftArm2Right[0], leftArm2Right[1], leftArm2Right[2]];
-		leftArm2Box.faceVertexUvs[0][2] = [leftArm2Left[3], leftArm2Left[0], leftArm2Left[2]];
-		leftArm2Box.faceVertexUvs[0][3] = [leftArm2Left[0], leftArm2Left[1], leftArm2Left[2]];
-		leftArm2Box.faceVertexUvs[0][4] = [leftArm2Top[3], leftArm2Top[0], leftArm2Top[2]];
-		leftArm2Box.faceVertexUvs[0][5] = [leftArm2Top[0], leftArm2Top[1], leftArm2Top[2]];
-		leftArm2Box.faceVertexUvs[0][6] = [leftArm2Bottom[0], leftArm2Bottom[3], leftArm2Bottom[1]];
-		leftArm2Box.faceVertexUvs[0][7] = [leftArm2Bottom[3], leftArm2Bottom[2], leftArm2Bottom[1]];
-		leftArm2Box.faceVertexUvs[0][8] = [leftArm2Front[3], leftArm2Front[0], leftArm2Front[2]];
-		leftArm2Box.faceVertexUvs[0][9] = [leftArm2Front[0], leftArm2Front[1], leftArm2Front[2]];
-		leftArm2Box.faceVertexUvs[0][10] = [leftArm2Back[3], leftArm2Back[0], leftArm2Back[2]];
-		leftArm2Box.faceVertexUvs[0][11] = [leftArm2Back[0], leftArm2Back[1], leftArm2Back[2]];
-		leftArm2Mesh = new THREE.Mesh(leftArm2Box, material2);
-		leftArm2Mesh.name = "leftArm2";
-		leftArm2Mesh.position.y = -10;
-		leftArm2Mesh.position.x = 6;
-		// leftArm2Mesh.visible = true;
-		scene.add(leftArm2Mesh);
-		
-		// Right Leg Overlay Parts
-		var rightLeg2Top = [
-			new THREE.Vector2(0.0625, 0.4375),
-			new THREE.Vector2(0.125, 0.4375),
-			new THREE.Vector2(0.125, 0.5),
-			new THREE.Vector2(0.0625, 0.5),
-		];
-		var rightLeg2Bottom = [
-			new THREE.Vector2(0.125, 0.4375),
-			new THREE.Vector2(0.1875, 0.4375),
-			new THREE.Vector2(0.1875, 0.5),
-			new THREE.Vector2(0.125, 0.5)
-		];
-		var rightLeg2Left = [
-			new THREE.Vector2(0, 0.25),
-			new THREE.Vector2(0.0625, 0.25),
-			new THREE.Vector2(0.0625, 0.4375),
-			new THREE.Vector2(0, 0.4375)
-		];
-		var rightLeg2Front = [
-			new THREE.Vector2(0.0625, 0.25),
-			new THREE.Vector2(0.125, 0.25),
-			new THREE.Vector2(0.125, 0.4375),
-			new THREE.Vector2(0.0625, 0.4375)
-		];
-		var rightLeg2Right = [
-			new THREE.Vector2(0.125, 0.25),
-			new THREE.Vector2(0.1875, 0.25),
-			new THREE.Vector2(0.1875, 0.4375),
-			new THREE.Vector2(0.125, 0.4375)
-		];
-		var rightLeg2Back = [
-			new THREE.Vector2(0.1875, 0.25),
-			new THREE.Vector2(0.25, 0.25),
-			new THREE.Vector2(0.25, 0.4375),
-			new THREE.Vector2(0.1875, 0.4375)
-		];
-		
-		rightLeg2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
-		rightLeg2Box.faceVertexUvs[0] = [];
-		rightLeg2Box.faceVertexUvs[0][0] = [rightLeg2Right[3], rightLeg2Right[0], rightLeg2Right[2]];
-		rightLeg2Box.faceVertexUvs[0][1] = [rightLeg2Right[0], rightLeg2Right[1], rightLeg2Right[2]];
-		rightLeg2Box.faceVertexUvs[0][2] = [rightLeg2Left[3], rightLeg2Left[0], rightLeg2Left[2]];
-		rightLeg2Box.faceVertexUvs[0][3] = [rightLeg2Left[0], rightLeg2Left[1], rightLeg2Left[2]];
-		rightLeg2Box.faceVertexUvs[0][4] = [rightLeg2Top[3], rightLeg2Top[0], rightLeg2Top[2]];
-		rightLeg2Box.faceVertexUvs[0][5] = [rightLeg2Top[0], rightLeg2Top[1], rightLeg2Top[2]];
-		rightLeg2Box.faceVertexUvs[0][6] = [rightLeg2Bottom[0], rightLeg2Bottom[3], rightLeg2Bottom[1]];
-		rightLeg2Box.faceVertexUvs[0][7] = [rightLeg2Bottom[3], rightLeg2Bottom[2], rightLeg2Bottom[1]];
-		rightLeg2Box.faceVertexUvs[0][8] = [rightLeg2Front[3], rightLeg2Front[0], rightLeg2Front[2]];
-		rightLeg2Box.faceVertexUvs[0][9] = [rightLeg2Front[0], rightLeg2Front[1], rightLeg2Front[2]];
-		rightLeg2Box.faceVertexUvs[0][10] = [rightLeg2Back[3], rightLeg2Back[0], rightLeg2Back[2]];
-		rightLeg2Box.faceVertexUvs[0][11] = [rightLeg2Back[0], rightLeg2Back[1], rightLeg2Back[2]];
-		rightLeg2Mesh = new THREE.Mesh(rightLeg2Box, material2);
-		rightLeg2Mesh.name = "rightLeg2"
-		rightLeg2Mesh.position.y = -22;
-		rightLeg2Mesh.position.x = -2;
-		scene.add(rightLeg2Mesh);
-		
-		// Left Leg Overlay Parts
-		var leftLeg2Top = [
-			new THREE.Vector2(0.0625, 0.1875),
-			new THREE.Vector2(0.125, 0.1875),
-			new THREE.Vector2(0.125, 0.25),
-			new THREE.Vector2(0.0625, 0.25),
-		];
-		var leftLeg2Bottom = [
-			new THREE.Vector2(0.125, 0.1875),
-			new THREE.Vector2(0.1875, 0.1875),
-			new THREE.Vector2(0.1875, 0.25),
-			new THREE.Vector2(0.125, 0.25)
-		];
-		var leftLeg2Left = [
-			new THREE.Vector2(0, 0),
-			new THREE.Vector2(0.0625, 0),
-			new THREE.Vector2(0.0625, 0.1875),
-			new THREE.Vector2(0, 0.1875)
-		];
-		var leftLeg2Front = [
-			new THREE.Vector2(0.0625, 0),
-			new THREE.Vector2(0.125, 0),
-			new THREE.Vector2(0.125, 0.1875),
-			new THREE.Vector2(0.0625, 0.1875)
-		];
-		var leftLeg2Right = [
-			new THREE.Vector2(0.125, 0),
-			new THREE.Vector2(0.1875, 0),
-			new THREE.Vector2(0.1875, 0.1875),
-			new THREE.Vector2(0.125, 0.1875)
-		];
-		var leftLeg2Back = [
-			new THREE.Vector2(0.1875, 0),
-			new THREE.Vector2(0.25, 0),
-			new THREE.Vector2(0.25, 0.1875),
-			new THREE.Vector2(0.1875, 0.1875)
-		];
-		var leftLeg2Box = new THREE.BoxGeometry(4.5, 13.5, 4.5, 0, 0, 0);
-		leftLeg2Box.faceVertexUvs[0] = [];
-		leftLeg2Box.faceVertexUvs[0][0] = [leftLeg2Right[3], leftLeg2Right[0], leftLeg2Right[2]];
-		leftLeg2Box.faceVertexUvs[0][1] = [leftLeg2Right[0], leftLeg2Right[1], leftLeg2Right[2]];
-		leftLeg2Box.faceVertexUvs[0][2] = [leftLeg2Left[3], leftLeg2Left[0], leftLeg2Left[2]];
-		leftLeg2Box.faceVertexUvs[0][3] = [leftLeg2Left[0], leftLeg2Left[1], leftLeg2Left[2]];
-		leftLeg2Box.faceVertexUvs[0][4] = [leftLeg2Top[3], leftLeg2Top[0], leftLeg2Top[2]];
-		leftLeg2Box.faceVertexUvs[0][5] = [leftLeg2Top[0], leftLeg2Top[1], leftLeg2Top[2]];
-		leftLeg2Box.faceVertexUvs[0][6] = [leftLeg2Bottom[0], leftLeg2Bottom[3], leftLeg2Bottom[1]];
-		leftLeg2Box.faceVertexUvs[0][7] = [leftLeg2Bottom[3], leftLeg2Bottom[2], leftLeg2Bottom[1]];
-		leftLeg2Box.faceVertexUvs[0][8] = [leftLeg2Front[3], leftLeg2Front[0], leftLeg2Front[2]];
-		leftLeg2Box.faceVertexUvs[0][9] = [leftLeg2Front[0], leftLeg2Front[1], leftLeg2Front[2]];
-		leftLeg2Box.faceVertexUvs[0][10] = [leftLeg2Back[3], leftLeg2Back[0], leftLeg2Back[2]];
-		leftLeg2Box.faceVertexUvs[0][11] = [leftLeg2Back[0], leftLeg2Back[1], leftLeg2Back[2]];
-		leftLeg2Mesh = new THREE.Mesh(leftLeg2Box, material2);
-		leftLeg2Mesh.name = "leftLeg2";
-		leftLeg2Mesh.position.y = -22;
-		leftLeg2Mesh.position.x = 2;
-		scene.add(leftLeg2Mesh);		
-		
-		
-		// Cape Parts
-		var capeTop = [
-			new THREE.Vector2(1/22, 21/17),
-			new THREE.Vector2(11/22, 21/17),
-			new THREE.Vector2(11/22, 22/17),
-			new THREE.Vector2(1/22, 22/17),
-		];
-		var capeBottom = [
-			new THREE.Vector2(11/22, 16/17),
-			new THREE.Vector2(21/22, 16/17),
-			new THREE.Vector2(21/22, 16/17),
-			new THREE.Vector2(11/22, 16/17)
-		];
-		var capeLeft = [
-			new THREE.Vector2(11/22, 0/17),
-			new THREE.Vector2(12/22, 0/17),
-			new THREE.Vector2(12/22, 16/17),
-			new THREE.Vector2(11/22, 16/17)
-		];
-		var capeFront = [
-			new THREE.Vector2(12/22, 0/17),
-			new THREE.Vector2(1, 0/17),
-			new THREE.Vector2(1, 16/17),
-			new THREE.Vector2(12/22, 16/17)
-		];
-		var capeRight = [
-			new THREE.Vector2(0, 0/17),
-			new THREE.Vector2(1/22, 0/17),
-			new THREE.Vector2(1/22, 16/17),
-			new THREE.Vector2(0, 16/17)
-		];
-		var capeBack = [
-			new THREE.Vector2(1/22, 0/17),
-			new THREE.Vector2(11/22, 0/17),
-			new THREE.Vector2(11/22, 16/17),
-			new THREE.Vector2(1/22, 16/17)
-		];
-		var capeBox = new THREE.BoxGeometry(10, 16, 1, 0, 0, 0);
-		capeBox.faceVertexUvs[0] = [];
-		capeBox.faceVertexUvs[0][0] = [capeRight[3], capeRight[0], capeRight[2]];
-		capeBox.faceVertexUvs[0][1] = [capeRight[0], capeRight[1], capeRight[2]];
-		capeBox.faceVertexUvs[0][2] = [capeLeft[3], capeLeft[0], capeLeft[2]];
-		capeBox.faceVertexUvs[0][3] = [capeLeft[0], capeLeft[1], capeLeft[2]];
-		capeBox.faceVertexUvs[0][4] = [capeTop[3], capeTop[0], capeTop[2]];
-		capeBox.faceVertexUvs[0][5] = [capeTop[0], capeTop[1], capeTop[2]];
-		capeBox.faceVertexUvs[0][6] = [capeBottom[0], capeBottom[3], capeBottom[1]];
-		capeBox.faceVertexUvs[0][7] = [capeBottom[3], capeBottom[2], capeBottom[1]];
-		capeBox.faceVertexUvs[0][8] = [capeFront[3], capeFront[0], capeFront[2]];
-		capeBox.faceVertexUvs[0][9] = [capeFront[0], capeFront[1], capeFront[2]];
-		capeBox.faceVertexUvs[0][10] = [capeBack[3], capeBack[0], capeBack[2]];
-		capeBox.faceVertexUvs[0][11] = [capeBack[0], capeBack[1], capeBack[2]];
-		capeMesh = new THREE.Mesh(capeBox, material3);
-		capeMesh.name = "cape";
-		
-		capePivot = new THREE.Group();
-		scene.add( capePivot );
-
-		capeMesh.position.y = -12.75;
-		capeMesh.position.z = -0.55;
-		
-		capePivot.rotation.x = 25 * (Math.PI/180);
-		
-		if(hasCape != null){
-			capePivot.add(capeMesh);
-		}
-	
-		renderer = new THREE.WebGLRenderer({angleRot: true});
-		renderer.setSize(canvasW, canvasH);
-		
-		model.append(renderer.domElement);
-	}
-	
-	var startTime = Date.now();
-	function drawSkin() {
-		requestAnimationFrame(drawSkin);
-		var time = (Date.now() - startTime)/1000;
-		if(!mouseDown && !isPaused){
-			modelRot += 0.5;
-			angleRot += 0.01;
-		}
-				
-		var ang = -(modelRot * Math.PI / 180);
-
-		camera.rotation.y = ang;
-		camera.position.z = radius*Math.cos(ang);
-		camera.position.x = radius*Math.sin(ang);
-	
-		var speed = 3;
-		//Leg Swing	
-		leftLeg2Mesh.rotation.x = leftLegMesh.rotation.x = Math.cos(angleRot*speed);
-		leftLeg2Mesh.position.z = leftLegMesh.position.z = 0 - 6*Math.sin(leftLegMesh.rotation.x);
-		leftLeg2Mesh.position.y = leftLegMesh.position.y = -16 - 6*Math.abs(Math.cos(leftLegMesh.rotation.x));
-		rightLeg2Mesh.rotation.x = rightLegMesh.rotation.x = Math.cos(angleRot*speed + (Math.PI));
-		rightLeg2Mesh.position.z = rightLegMesh.position.z = 0 - 6*Math.sin(rightLegMesh.rotation.x);
-		rightLeg2Mesh.position.y = rightLegMesh.position.y = -16 - 6*Math.abs(Math.cos(rightLegMesh.rotation.x));
-		
-		//Arm Swing
-		leftArm2Mesh.rotation.x = leftArmMesh.rotation.x = Math.cos(angleRot*speed + (Math.PI));
-		leftArm2Mesh.position.z = leftArmMesh.position.z = 0 - 6*Math.sin(leftArmMesh.rotation.x);
-		leftArm2Mesh.position.y = leftArmMesh.position.y = -4 - 6*Math.abs(Math.cos(leftArmMesh.rotation.x));
-		rightArm2Mesh.rotation.x = rightArmMesh.rotation.x = Math.cos(angleRot*speed);
-		rightArm2Mesh.position.z = rightArmMesh.position.z = 0 - 6*Math.sin(rightArmMesh.rotation.x);
-		rightArm2Mesh.position.y = rightArmMesh.position.y = -4 - 6*Math.abs(Math.cos(rightArmMesh.rotation.x));
-
-	
-		renderer.render(scene, camera);
-
-		if(angleRot > 360){
-			angleRot = 0;
-		}
-		
-	}
-	
-	model.mousedown(function(e){
-		originMouseX = (e.pageX - this.offsetLeft) - modelRot;
-		mouseDown = true;
-	});
-
-	$(document).mouseup(function(){
-		mouseDown = false;
-	});
-
-	model.bind("contextmenu", function(e){
-		e.preventDefault();
-		isPaused = !isPaused;
-	});
-
-	model.mousemove(function(e){
-		if(!mouseDown){ return; }
-		var x = (e.pageX - this.offsetLeft) - originMouseX;
-		var y = e.pageY - this.offsetTop; 
-
-		modelRot = x;	
-	});
-		
-	//checkbox control logic
-	$(".toggle-head").click(function(){
-		var checked = $(this)[0].checked;
-		var part = scene.getObjectByName("head2", false);
-		part.visible = !part.visible;
-
-	});
-
-	var layer2parts = [
-		"head2", "leftArm2", "body2", "rightArm2", "leftLeg2", "rightLeg2"
-	];
-
-	$(".toggle-cape").click(function(){
-		var part = scene.getObjectByName("cape", false);
-		part.visible = !part.visible;
-	});
-	
-	$(".toggle-layer2").click(function(){
-		var head = scene.getObjectByName("head2", false);
-		$("#head2").prop("checked", !head.visible);
-
-		var checked = $(this)[0].checked;
-		for(var i=0; i<layer2parts.length; i++){
-			var part = scene.getObjectByName(layer2parts[i], false);
-			part.visible = !part.visible;
-		}
-	});
-	
+			if(options.disableControl !== true)
+				skinViewer.control = new skinpreview3d.SkinControl(skinViewer);
+		};
+	} (window.jQuery));
 }

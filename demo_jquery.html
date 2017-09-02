@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>skinpreview3d.js example using jQuery</title>
+	<style>
+	body, html{
+		background: #444444;
+		color: #fff;
+	}
+
+	</style>
+</head>
+<body>
+
+	<h2>skinpreview3d.js example using jQuery</h2>
+	<div id="skin_container"></div>
+
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/87/three.min.js"></script>
+	<script type="text/javascript" src="js/skinpreview3d.js"></script>
+	<script>
+		$(() => {
+			$("#skin_container").skinPreview3d({
+				skinUrl: 'img/Hacksore.png',
+				capeUrl: 'img/mojang_cape.png',
+				slim: true,
+				width: 600,
+				height: 600
+			});
+		});
+	</script>
+</body>
+</html>
