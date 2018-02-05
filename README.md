@@ -1,3 +1,8 @@
+# This project has been discontinued, please refer to the following repo for updates
+[https://github.com/to2mbn/skinview3d](https://github.com/to2mbn/skinview3d)
+
+=====
+
 # skinpreview3d.js
 A Three.js powered Minecraft skin viewer.
 
